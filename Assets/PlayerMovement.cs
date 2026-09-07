@@ -5,12 +5,23 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : NetworkBehaviour
 {
-    [SerializeField] private float speed = 5f;
+    [Header("Movement Speeds")]
+    [SerializeField] private float walkSpeed = 5f;
+    [SerializeField] private float sprintSpeed = 8.5f;
+
+    [Header("Jump & Gravity")]
+    [SerializeField] private float jumpHeight = 1.2f;
+    [SerializeField] private float gravity = -19.62f;
+
+    [Header("Look & Physics")]
     [SerializeField] private float mouseSensitivity = 0.1f;
+    [SerializeField] private float pushPower = 2.0f;
     [SerializeField] private Transform playerCamera;
 
     private CharacterController controller;
     private float xRotation = 0f;
+    private Vector3 verticalVelocity;
+    private float jumpCooldownTimer = 0f;
 
     private void Awake()
     {
@@ -35,7 +46,12 @@ public class PlayerMovement : NetworkBehaviour
     private void Update()
     {
         if (!IsOwner) return;
-        
+
+        if (jumpCooldownTimer > 0f)
+        {
+            jumpCooldownTimer -= Time.deltaTime;
+        }
+
         var mouse = Mouse.current;
         if (mouse != null)
         {
@@ -55,25 +71,45 @@ public class PlayerMovement : NetworkBehaviour
         var keyboard = Keyboard.current;
         if (keyboard != null)
         {
+            bool isGrounded = controller.isGrounded;
+
+            if (isGrounded && verticalVelocity.y < 0f)
+            {
+                verticalVelocity.y = -2f;
+            }
+
+            bool isSprinting = keyboard.leftShiftKey.isPressed;
+            float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
+
             float x = 0f;
             float z = 0f;
-
             if (keyboard.wKey.isPressed) z += 1f;
             if (keyboard.sKey.isPressed) z -= 1f;
             if (keyboard.aKey.isPressed) x -= 1f;
             if (keyboard.dKey.isPressed) x += 1f;
 
-            Vector3 direction = (transform.forward * z + transform.right * x).normalized;
-
-            if (direction.magnitude >= 0.1f)
+            Vector3 moveDirection = (transform.forward * z + transform.right * x).normalized;
+            if (keyboard.spaceKey.wasPressedThisFrame && isGrounded && jumpCooldownTimer <= 0f)
             {
-                controller.Move(direction * speed * Time.deltaTime);
+                verticalVelocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                jumpCooldownTimer = 0.2f;
             }
 
-            if (!controller.isGrounded)
-            {
-                controller.Move(Vector3.down * 9.81f * Time.deltaTime);
-            }
+            verticalVelocity.y += gravity * Time.deltaTime;
+
+            Vector3 motion = (moveDirection * currentSpeed + verticalVelocity) * Time.deltaTime;
+            controller.Move(motion);
         }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (!IsOwner) return;
+
+        Rigidbody body = hit.collider.attachedRigidbody;
+        if (body == null || body.isKinematic) return;
+        if (hit.moveDirection.y < -0.3f) return;
+        Vector3 pushDir = new Vector3(hit.moveDirection.x, 0f, hit.moveDirection.z);
+        body.linearVelocity = pushDir * pushPower;
     }
 }
