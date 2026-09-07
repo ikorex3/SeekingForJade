@@ -109,7 +109,30 @@ public class PlayerMovement : NetworkBehaviour
         Rigidbody body = hit.collider.attachedRigidbody;
         if (body == null || body.isKinematic) return;
         if (hit.moveDirection.y < -0.3f) return;
+
         Vector3 pushDir = new Vector3(hit.moveDirection.x, 0f, hit.moveDirection.z);
-        body.linearVelocity = pushDir * pushPower;
+        Vector3 force = pushDir * pushPower;
+        NetworkObject netObj = hit.collider.GetComponent<NetworkObject>();
+        if (netObj != null)
+        {
+            PushServerRpc(netObj.NetworkObjectId, force);
+        }
+        else
+        {
+            body.linearVelocity = force;
+        }
+    }
+
+    [ServerRpc]
+    private void PushServerRpc(ulong networkObjectId, Vector3 force)
+    {
+        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject netObj))
+        {
+            Rigidbody rb = netObj.GetComponent<Rigidbody>();
+            if (rb != null && !rb.isKinematic)
+            {
+                rb.linearVelocity = force;
+            }
+        }
     }
 }
