@@ -84,7 +84,6 @@ namespace SeekingForJade.Workstations
 
             rock.transform.position = rockClampPoint != null ? rockClampPoint.position : transform.position;
             rock.transform.rotation = rockClampPoint != null ? rockClampPoint.rotation : transform.rotation;
-            rock.transform.SetParent(rockClampPoint);
 
             OnRockLoaded?.Invoke(rock);
             return true;
@@ -158,8 +157,6 @@ namespace SeekingForJade.Workstations
             GameObject rockObj = clampedRock.gameObject;
             Vector3 slicePoint = rockClampPoint != null ? rockClampPoint.position : rockObj.transform.position;
             Vector3 worldNormal = transform.TransformDirection(cutPlaneNormal).normalized;
-
-            rockObj.transform.SetParent(null);
 
             // Execute dynamic mesh slice
             var sliceResult = MeshSlicer.Slice(rockObj, slicePoint, worldNormal, jadeCapMaterial);

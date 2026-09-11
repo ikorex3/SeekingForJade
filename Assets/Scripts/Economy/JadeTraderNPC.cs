@@ -86,7 +86,6 @@ namespace SeekingForJade.Economy
 
             int seed = UnityEngine.Random.Range(100000, 999999);
             GameObject rockObj = ProceduralRockGenerator.CreateRockGameObject(data, seed, slot.position);
-            rockObj.transform.SetParent(transform);
             rockObj.transform.rotation = slot.rotation;
 
             ProceduralRock rock = rockObj.GetComponent<ProceduralRock>();

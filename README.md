@@ -168,6 +168,15 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 
 All changes made to the codebase are tracked here in chronological order:
 
+### [2026-09-11] - Network Synchronization Phase 1: ProceduralRock NetworkBehaviour & Network Prefab
+**Branch**: `feature/multiplayer-rock-sync`
+- **NetworkBehaviour Conversion**: Refactored `ProceduralRock.cs` from `MonoBehaviour` to `NetworkBehaviour`, adding `[RequireComponent(typeof(NetworkObject), typeof(NetworkTransform))]`.
+- **Procedural State Synchronization**: Implemented `RockNetworkState` struct (`INetworkSerializable`) and `NetworkVariable<RockNetworkState> NetState` to synchronize rock seed, weight, jade quality, colors, translucency, tape wrapping, and market display status from server to clients.
+- **Deterministic Client Reconstruction**: When remote clients spawn a rock, `OnNetworkSpawn` decodes `NetState` and deterministically reconstructs identical mesh geometry and materials locally, ensuring zero desync without sending heavy mesh data across the wire.
+- **Procedural Rock Network Prefab**: Created `ProceduralRockNetwork.prefab` with `NetworkObject` and `NetworkTransform` and registered it in `DefaultNetworkPrefabs.asset`.
+- **Dynamic Spawning & Name Lookup**: Updated `ProceduralRockGenerator.cs` to instantiate `ProceduralRockNetwork.prefab` and look up `RockData` by name across network peers.
+- **Editor Automation Tools**: Added `[MenuItem("SeekingForJade/Networking/Create Rock Network Prefab")]` and `[MenuItem("SeekingForJade/Networking/Add Network Components to Scene Rocks")]` in `SceneSetupHelper.cs`.
+
 ### [2026-09-11] - Store Assets & VFX Integration (Nature, Town, Props, Rocks, Campfire & Animations)
 **Branch**: `feature/rock-cutting-improvements`
 - **Universal Render Pipeline Material Conversion**: Built `MaterialURPConverter.cs` to batch-upgrade all imported store assets from legacy Built-in Standard shaders (`fileID: 46`) to `Universal Render Pipeline/Lit` and `Universal Render Pipeline/Particles/Unlit`, preserving diffuse albedos, normal maps, tints, smoothness, and emissions with zero magenta/pink rendering.
@@ -209,6 +218,15 @@ All changes made to the codebase are tracked here in chronological order:
   - **Clean Precision Saw Cuts**: Preserves 100% market value (`cutEfficiency = 1.0f`, 0 crack penalty).
   - **Crude Smash Breaks**: Suffers a severe -60% value penalty (`cutEfficiency = 0.40f`) plus an additional `+0.45` internal fissure/crack penalty.
   - `JadeTraderNPC.cs` appraisal now explicitly reports whether slabs were cleanly saw-cut or crudely shattered, dynamically explaining the value difference to the player.
+
+### [2026-09-11] - Host/Client Multiplayer Synchronization & Unity MCP Integration
+**Branch**: `feature/multiplayer-sync`
+- **Unity MCP Live Connection**: Connected and verified live Unity Editor MCP server (`unityMCP`) for automated scene queries, asset checks, and clean compilation monitoring.
+- **Player Movement & Rock Collision Fix**: Eliminated player movement blocking while carrying rocks by disabling the rock's `Collider` (`col.enabled = false`) and setting `isKinematic = true` on pickup, restoring them cleanly on throw/drop via `SetRockColliderClientRpc`.
+- **Remote Player Camera & HoldPoint Lifecycle**: Fixed camera deactivation in `PlayerMovement.OnNetworkSpawn()`. Instead of deactivating `playerCamera.gameObject` (which killed `HoldPoint` and broke network positioning on clients), now selectively disables only the `Camera` and `AudioListener` components, keeping the transform hierarchy and `HoldPoint` active.
+- **Carried Rock NetworkTransform Deconfliction**: Disconnected `NetworkTransform` on carried rocks while held to eliminate packet snapping and network jitter with `LateUpdate`, re-enabling `NetworkTransform` and physics on throw/drop.
+- **NGO Hierarchy & Parenting Cleanup**: Resolved `TestRocks` non-NetworkObject container parenting issues in `SampleScene.unity` and `SceneSetupHelper.cs`, ensuring all networked boulders exist at scene root.
+- **Deterministic Procedural Rock Networking**: Added `[System.Serializable]` `RockNetworkState` struct and `NetworkVariable<RockNetworkState>` in `ProceduralRock.cs` for seed-based client reconstruction without serializing raw meshes over the wire.
 
 ### [2026-09-11] - Low-Poly Art Overhaul, Boulder Diversity & Tape-Wrapped Mystery Boulder
 **Branch**: `feature/rock-cutting-improvements`

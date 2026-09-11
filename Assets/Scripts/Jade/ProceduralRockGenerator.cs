@@ -1,16 +1,81 @@
+using System.Collections.Generic;
+using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 
 namespace SeekingForJade.Jade
 {
     public static class ProceduralRockGenerator
     {
+        private static GameObject rockNetworkPrefab;
+        private static Dictionary<string, RockData> rockDataCache;
+
+        public static RockData GetRockDataByName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            if (rockDataCache == null)
+            {
+                rockDataCache = new Dictionary<string, RockData>();
+#if UNITY_EDITOR
+                string[] guids = UnityEditor.AssetDatabase.FindAssets("t:RockData");
+                foreach (string guid in guids)
+                {
+                    string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                    RockData data = UnityEditor.AssetDatabase.LoadAssetAtPath<RockData>(path);
+                    if (data != null && !rockDataCache.ContainsKey(data.name))
+                    {
+                        rockDataCache.Add(data.name, data);
+                    }
+                }
+#else
+                RockData[] loaded = Resources.LoadAll<RockData>("");
+                foreach (var data in loaded)
+                {
+                    if (data != null && !rockDataCache.ContainsKey(data.name))
+                    {
+                        rockDataCache.Add(data.name, data);
+                    }
+                }
+#endif
+            }
+
+            if (rockDataCache.TryGetValue(name, out RockData result))
+            {
+                return result;
+            }
+            return null;
+        }
+
         public static GameObject CreateRockGameObject(RockData rockData, int seed, Vector3 position)
         {
-            GameObject rockObj = new GameObject($"Rock_{seed}");
-            rockObj.transform.position = position;
+            GameObject rockObj;
 
-            MeshFilter filter = rockObj.AddComponent<MeshFilter>();
-            MeshRenderer renderer = rockObj.AddComponent<MeshRenderer>();
+            if (rockNetworkPrefab == null)
+            {
+#if UNITY_EDITOR
+                rockNetworkPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ProceduralRockNetwork.prefab");
+#else
+                rockNetworkPrefab = Resources.Load<GameObject>("ProceduralRockNetwork");
+#endif
+            }
+
+            if (rockNetworkPrefab != null)
+            {
+                rockObj = Object.Instantiate(rockNetworkPrefab, position, Quaternion.identity);
+                rockObj.name = $"Rock_{seed}";
+            }
+            else
+            {
+                rockObj = new GameObject($"Rock_{seed}");
+                rockObj.transform.position = position;
+            }
+
+            MeshFilter filter = rockObj.GetComponent<MeshFilter>();
+            if (filter == null) filter = rockObj.AddComponent<MeshFilter>();
+
+            MeshRenderer renderer = rockObj.GetComponent<MeshRenderer>();
+            if (renderer == null) renderer = rockObj.AddComponent<MeshRenderer>();
 
             Mesh rockMesh = null;
 #if UNITY_EDITOR
@@ -47,22 +112,36 @@ namespace SeekingForJade.Jade
 
             renderer.sharedMaterial = crustMat;
 
-            MeshCollider collider = rockObj.AddComponent<MeshCollider>();
+            MeshCollider collider = rockObj.GetComponent<MeshCollider>();
+            if (collider == null) collider = rockObj.AddComponent<MeshCollider>();
             collider.sharedMesh = rockMesh;
             collider.convex = true;
 
-            Rigidbody rb = rockObj.AddComponent<Rigidbody>();
+            Rigidbody rb = rockObj.GetComponent<Rigidbody>();
+            if (rb == null) rb = rockObj.AddComponent<Rigidbody>();
             rb.mass = 8.0f;
             rb.linearDamping = 0.8f;
             rb.angularDamping = 2.5f;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-            ProceduralRock rockComponent = rockObj.AddComponent<ProceduralRock>();
+            NetworkObject netObj = rockObj.GetComponent<NetworkObject>();
+            if (netObj == null) netObj = rockObj.AddComponent<NetworkObject>();
+
+            NetworkTransform netTransform = rockObj.GetComponent<NetworkTransform>();
+            if (netTransform == null) netTransform = rockObj.AddComponent<NetworkTransform>();
+            netTransform.InLocalSpace = false;
+            netTransform.Interpolate = true;
+
+            ProceduralRock rockComponent = rockObj.GetComponent<ProceduralRock>();
+            if (rockComponent == null) rockComponent = rockObj.AddComponent<ProceduralRock>();
             rockComponent.Initialize(rockData, seed);
 
-            RockImpactBreaker breaker = rockObj.AddComponent<RockImpactBreaker>();
+            RockImpactBreaker breaker = rockObj.GetComponent<RockImpactBreaker>();
+            if (breaker == null) breaker = rockObj.AddComponent<RockImpactBreaker>();
 #if UNITY_EDITOR
             breaker.JadeCapMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Jade_Internal.mat");
+#else
+            breaker.JadeCapMaterial = Resources.Load<Material>("M_Jade_Internal");
 #endif
 
             return rockObj;
