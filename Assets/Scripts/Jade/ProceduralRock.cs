@@ -34,6 +34,9 @@ namespace SeekingForJade.Jade
         public float CutEfficiency;
         public bool IsMarketDisplay;
         public int MarketPrice;
+        public Vector3 SliceLocalPoint;
+        public Vector3 SliceLocalNormal;
+        public bool IsPositiveSide;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -54,6 +57,16 @@ namespace SeekingForJade.Jade
             serializer.SerializeValue(ref CutEfficiency);
             serializer.SerializeValue(ref IsMarketDisplay);
             serializer.SerializeValue(ref MarketPrice);
+
+            serializer.SerializeValue(ref SliceLocalPoint.x);
+            serializer.SerializeValue(ref SliceLocalPoint.y);
+            serializer.SerializeValue(ref SliceLocalPoint.z);
+
+            serializer.SerializeValue(ref SliceLocalNormal.x);
+            serializer.SerializeValue(ref SliceLocalNormal.y);
+            serializer.SerializeValue(ref SliceLocalNormal.z);
+
+            serializer.SerializeValue(ref IsPositiveSide);
         }
 
         public bool Equals(RockNetworkState other)
@@ -74,7 +87,10 @@ namespace SeekingForJade.Jade
                    CutMethod == other.CutMethod &&
                    Mathf.Approximately(CutEfficiency, other.CutEfficiency) &&
                    IsMarketDisplay == other.IsMarketDisplay &&
-                   MarketPrice == other.MarketPrice;
+                   MarketPrice == other.MarketPrice &&
+                   SliceLocalPoint == other.SliceLocalPoint &&
+                   SliceLocalNormal == other.SliceLocalNormal &&
+                   IsPositiveSide == other.IsPositiveSide;
         }
     }
 
@@ -101,6 +117,11 @@ namespace SeekingForJade.Jade
         [SerializeField] private bool isMarketDisplay = false;
         [SerializeField] private int marketPrice = 0;
 
+        [Header("Slice Synchronization")]
+        [SerializeField] private Vector3 sliceLocalPoint = Vector3.zero;
+        [SerializeField] private Vector3 sliceLocalNormal = Vector3.zero;
+        [SerializeField] private bool isPositiveSide = true;
+
         [Header("Network State")]
         public NetworkVariable<RockNetworkState> NetState = new(
             writePerm: NetworkVariableWritePermission.Server
@@ -108,6 +129,11 @@ namespace SeekingForJade.Jade
 
         private MeshRenderer meshRenderer;
         private MaterialPropertyBlock propertyBlock;
+
+        private int currentMeshSeed = 0;
+        private Vector3 appliedSliceNormal = Vector3.zero;
+        private Vector3 appliedSlicePoint = Vector3.zero;
+        private bool appliedSliceSide = true;
 
         // Subsurface optical inspection light
         private GameObject haloObj;
@@ -180,21 +206,56 @@ namespace SeekingForJade.Jade
             cutEfficiency = state.CutEfficiency;
             isMarketDisplay = state.IsMarketDisplay;
             marketPrice = state.MarketPrice;
+            sliceLocalPoint = state.SliceLocalPoint;
+            sliceLocalNormal = state.SliceLocalNormal;
+            isPositiveSide = state.IsPositiveSide;
 
             if (rockData == null && !state.RockDataName.IsEmpty)
             {
                 rockData = ProceduralRockGenerator.GetRockDataByName(state.RockDataName.ToString());
             }
 
-            if (TryGetComponent<MeshFilter>(out var filter) && filter.sharedMesh == null && rockSeed != 0)
+            if (TryGetComponent<MeshFilter>(out var filter) && rockSeed != 0)
             {
-                Mesh generatedMesh = ProceduralRockGenerator.GenerateRockMesh(rockSeed);
-                filter.sharedMesh = generatedMesh;
-
-                if (TryGetComponent<MeshCollider>(out var col))
+                // 1. Generate base procedural mesh if unsliced and seed updated or missing
+                if (!isSliced && (currentMeshSeed != rockSeed || filter.sharedMesh == null))
                 {
-                    col.sharedMesh = generatedMesh;
-                    col.convex = true;
+                    Mesh generatedMesh = ProceduralRockGenerator.GenerateMeshForSeed(rockSeed);
+                    filter.sharedMesh = generatedMesh;
+
+                    if (TryGetComponent<MeshCollider>(out var col))
+                    {
+                        col.sharedMesh = generatedMesh;
+                        col.convex = true;
+                    }
+                    currentMeshSeed = rockSeed;
+                    appliedSliceNormal = Vector3.zero;
+                    appliedSlicePoint = Vector3.zero;
+                }
+
+                // 2. If sliced, apply slice locally if slice parameters updated or mesh missing
+                if (isSliced && sliceLocalNormal != Vector3.zero)
+                {
+                    if (appliedSliceNormal != sliceLocalNormal || appliedSlicePoint != sliceLocalPoint || appliedSliceSide != isPositiveSide || filter.sharedMesh == null || currentMeshSeed != rockSeed)
+                    {
+                        if (filter.sharedMesh == null || currentMeshSeed != rockSeed)
+                        {
+                            Mesh baseMesh = ProceduralRockGenerator.GenerateMeshForSeed(rockSeed);
+                            filter.sharedMesh = baseMesh;
+                            currentMeshSeed = rockSeed;
+                        }
+
+                        Material capMat = null;
+#if UNITY_EDITOR
+                        capMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Jade_Internal.mat");
+#else
+                        capMat = Resources.Load<Material>("M_Jade_Internal");
+#endif
+                        SeekingForJade.Slicing.MeshSlicer.SliceSingleSideLocal(gameObject, sliceLocalPoint, sliceLocalNormal, capMat, isPositiveSide);
+                        appliedSliceNormal = sliceLocalNormal;
+                        appliedSlicePoint = sliceLocalPoint;
+                        appliedSliceSide = isPositiveSide;
+                    }
                 }
             }
 
@@ -238,8 +299,20 @@ namespace SeekingForJade.Jade
                 CutMethod = cutMethod,
                 CutEfficiency = cutEfficiency,
                 IsMarketDisplay = isMarketDisplay,
-                MarketPrice = marketPrice
+                MarketPrice = marketPrice,
+                SliceLocalPoint = sliceLocalPoint,
+                SliceLocalNormal = sliceLocalNormal,
+                IsPositiveSide = isPositiveSide
             };
+        }
+
+        public void SetSliceData(Vector3 localPoint, Vector3 localNormal, bool positiveSide)
+        {
+            isSliced = true;
+            sliceLocalPoint = localPoint;
+            sliceLocalNormal = localNormal;
+            isPositiveSide = positiveSide;
+            PushLocalStateToNetwork();
         }
 
         public void SetTapeWrapped(bool wrapped)
@@ -275,6 +348,20 @@ namespace SeekingForJade.Jade
         {
             meshRenderer = GetComponent<MeshRenderer>();
             propertyBlock = new MaterialPropertyBlock();
+
+            if (TryGetComponent<MeshFilter>(out var filter))
+            {
+                if (filter.sharedMesh == null || filter.sharedMesh.name.Contains("Rock Type"))
+                {
+                    Mesh generatedMesh = ProceduralRockGenerator.GenerateMeshForSeed(123456);
+                    filter.sharedMesh = generatedMesh;
+                    if (TryGetComponent<MeshCollider>(out var col))
+                    {
+                        col.sharedMesh = generatedMesh;
+                        col.convex = true;
+                    }
+                }
+            }
         }
 
         private void Start()
@@ -305,6 +392,31 @@ namespace SeekingForJade.Jade
         {
             rockData = data;
             rockSeed = seed;
+            isSliced = false;
+            cutMethod = CutMethod.None;
+            cutEfficiency = 1.0f;
+            isMarketDisplay = false;
+            marketPrice = 0;
+            sliceLocalPoint = Vector3.zero;
+            sliceLocalNormal = Vector3.zero;
+            isPositiveSide = true;
+            currentMeshSeed = 0;
+            appliedSliceNormal = Vector3.zero;
+            appliedSlicePoint = Vector3.zero;
+            appliedSliceSide = true;
+
+            if (TryGetComponent<MeshFilter>(out var filter) && rockSeed != 0)
+            {
+                Mesh generatedMesh = ProceduralRockGenerator.GenerateMeshForSeed(rockSeed);
+                filter.sharedMesh = generatedMesh;
+
+                if (TryGetComponent<MeshCollider>(out var col))
+                {
+                    col.sharedMesh = generatedMesh;
+                    col.convex = true;
+                }
+                currentMeshSeed = rockSeed;
+            }
 
             var rng = new System.Random(seed);
             if (rockData != null)
@@ -318,6 +430,11 @@ namespace SeekingForJade.Jade
             {
                 weightKg = 5.0f;
                 quality = JadeQuality.Generate(JadeRarity.BeanGreen, seed);
+            }
+
+            if (TryGetComponent<RockImpactBreaker>(out var breaker))
+            {
+                breaker.ResetBreaker();
             }
 
             ApplyVisualProperties();
@@ -336,6 +453,9 @@ namespace SeekingForJade.Jade
             cutMethod = parent.cutMethod;
             cutEfficiency = parent.cutEfficiency;
             isInitialized = true;
+            sliceLocalPoint = parent.sliceLocalPoint;
+            sliceLocalNormal = parent.sliceLocalNormal;
+            isPositiveSide = parent.isPositiveSide;
             ApplyVisualProperties();
             PushLocalStateToNetwork();
         }

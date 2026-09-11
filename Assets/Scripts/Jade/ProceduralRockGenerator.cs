@@ -47,10 +47,8 @@ namespace SeekingForJade.Jade
             return null;
         }
 
-        public static GameObject CreateRockGameObject(RockData rockData, int seed, Vector3 position)
+        public static GameObject GetRockNetworkPrefab()
         {
-            GameObject rockObj;
-
             if (rockNetworkPrefab == null)
             {
 #if UNITY_EDITOR
@@ -58,6 +56,17 @@ namespace SeekingForJade.Jade
 #else
                 rockNetworkPrefab = Resources.Load<GameObject>("ProceduralRockNetwork");
 #endif
+            }
+            return rockNetworkPrefab;
+        }
+
+        public static GameObject CreateRockGameObject(RockData rockData, int seed, Vector3 position)
+        {
+            GameObject rockObj;
+
+            if (rockNetworkPrefab == null)
+            {
+                GetRockNetworkPrefab();
             }
 
             if (rockNetworkPrefab != null)
@@ -77,33 +86,7 @@ namespace SeekingForJade.Jade
             MeshRenderer renderer = rockObj.GetComponent<MeshRenderer>();
             if (renderer == null) renderer = rockObj.AddComponent<MeshRenderer>();
 
-            Mesh rockMesh = null;
-#if UNITY_EDITOR
-            if (seed % 2 == 0)
-            {
-                Mesh template = GetRockPackTemplateMesh(seed);
-                if (template != null)
-                {
-                    rockMesh = Object.Instantiate(template);
-                    Vector3 bSize = template.bounds.size;
-                    float maxDim = Mathf.Max(bSize.x, bSize.y, bSize.z);
-                    if (maxDim > 0.001f)
-                    {
-                        float scale = 0.65f / maxDim;
-                        Vector3[] v = rockMesh.vertices;
-                        for (int i = 0; i < v.Length; i++) v[i] *= scale;
-                        rockMesh.vertices = v;
-                        rockMesh.RecalculateBounds();
-                        rockMesh.RecalculateNormals();
-                    }
-                }
-            }
-#endif
-            if (rockMesh == null)
-            {
-                rockMesh = GenerateRockMesh(seed);
-            }
-
+            Mesh rockMesh = GenerateMeshForSeed(seed);
             filter.sharedMesh = rockMesh;
 
             Material crustMat = rockData != null && rockData.crustMaterial != null 
@@ -144,6 +127,12 @@ namespace SeekingForJade.Jade
             breaker.JadeCapMaterial = Resources.Load<Material>("M_Jade_Internal");
 #endif
 
+            if (Application.isPlaying && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && NetworkManager.Singleton.IsServer && !netObj.IsSpawned)
+            {
+                netObj.Spawn();
+                rockComponent.PushLocalStateToNetwork();
+            }
+
             return rockObj;
         }
 
@@ -182,18 +171,19 @@ namespace SeekingForJade.Jade
         }
 #endif
 
+        public static Mesh GenerateMeshForSeed(int seed)
+        {
+            return GenerateRockMesh(seed);
+        }
+
         public static Mesh GenerateRockMesh(int seed, int subdivisions = 3, float baseRadius = 0.35f, bool flatShaded = true)
         {
-            var rng = new System.Random(seed);
-            float noiseScale = 2.8f;
-            float noiseStrength = 0.14f;
+            // Use fixed seed for standard raw rock shape across all clients
+            var rng = new System.Random(123456);
 
-            // Random non-uniform scale factors to give unique rock silhouettes
-            Vector3 aspectScale = new Vector3(
-                Mathf.Lerp(0.75f, 1.25f, (float)rng.NextDouble()),
-                Mathf.Lerp(0.65f, 1.10f, (float)rng.NextDouble()),
-                Mathf.Lerp(0.75f, 1.35f, (float)rng.NextDouble())
-            );
+            float noiseScale = 2.4f;
+            float noiseStrength = 0.16f;
+            Vector3 aspectScale = new Vector3(1.10f, 0.88f, 1.05f);
 
             // Start with an icosphere base (subdivisions=3 yields 320 triangles)
             Mesh baseSphere = CreateIcoSphere(subdivisions, baseRadius);
@@ -201,7 +191,7 @@ namespace SeekingForJade.Jade
             Vector3[] normals = baseSphere.normals;
             Vector2[] uvs = new Vector2[vertices.Length];
 
-            float seedOffset = (float)(rng.NextDouble() * 100.0);
+            float seedOffset = 42.5f;
 
             for (int i = 0; i < vertices.Length; i++)
             {
@@ -210,10 +200,10 @@ namespace SeekingForJade.Jade
                 float n = Mathf.PerlinNoise(v.x * noiseScale + seedOffset, v.y * noiseScale + seedOffset) * 2f - 1f;
                 float n2 = Mathf.PerlinNoise(v.y * noiseScale + seedOffset + 31f, v.z * noiseScale + seedOffset + 17f) * 2f - 1f;
 
-                float displacement = (n * 0.7f + n2 * 0.3f) * noiseStrength;
+                float displacement = (n * 0.65f + n2 * 0.35f) * noiseStrength;
                 Vector3 displaced = (v + normals[i] * displacement);
 
-                // Apply aspect scale
+                // Apply archetype aspect scale
                 displaced.x *= aspectScale.x;
                 displaced.y *= aspectScale.y;
                 displaced.z *= aspectScale.z;

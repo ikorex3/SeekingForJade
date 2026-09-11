@@ -24,9 +24,11 @@
 - Cache component lookups in `Awake()` or `OnNetworkSpawn()`; never query components inside `Update()`.
 - Avoid GC allocations in per-frame loops (no `new`, no string concatenations or boxing in `Update()` / `FixedUpdate()`).
 
-### 2. Netcode for GameObjects (NGO) Guidelines
+### 2. Netcode for GameObjects (NGO) & Multiplayer-First Guidelines
+- **CRITICAL MULTIPLAYER-FIRST REQUIREMENT**: ALL new scripts, gameplay mechanics, workstations, player interactions, economy transactions, physical object spawns, and state mutations MUST be architected for **Multiplayer-First Execution**. Never write single-player standalone logic without authoritative network synchronization.
 - Scripts managing networked state must inherit from `NetworkBehaviour` rather than `MonoBehaviour`.
 - Network synchronization initialization belongs in `OnNetworkSpawn()`, not `Awake()` or `Start()`.
+- Never write to `NetworkVariable.Value` before `IsSpawned` is true on the server.
 - Network cleanup and unsubscriptions must be handled in `OnNetworkDespawn()`.
 - Use `IsOwner`, `IsServer`, and `IsClient` guards to enforce authoritative execution.
 - Use `NetworkVariable<T>` for state synchronization with appropriate read/write permissions.

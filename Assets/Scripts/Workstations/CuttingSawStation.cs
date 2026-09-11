@@ -77,8 +77,11 @@ namespace SeekingForJade.Workstations
             Rigidbody rb = rock.GetComponent<Rigidbody>();
             if (rb != null)
             {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
                 rb.isKinematic = true;
             }
 
@@ -170,6 +173,7 @@ namespace SeekingForJade.Workstations
                 ProceduralRock rockA = pieceA.GetComponent<ProceduralRock>();
                 if (rockA != null)
                 {
+                    rockA.SetSliceData(sliceResult.localPlanePoint, sliceResult.localPlaneNormal, true);
                     rockA.MarkAsSawCut();
                 }
 
@@ -180,6 +184,7 @@ namespace SeekingForJade.Workstations
                     rockB = pieceB.AddComponent<ProceduralRock>();
                 }
                 rockB.CopyFromParent(clampedRock, clampedRock.WeightKg * 0.5f);
+                rockB.SetSliceData(sliceResult.localPlanePoint, sliceResult.localPlaneNormal, false);
                 rockB.MarkAsSawCut();
 
                 // Unfreeze rigidbodies so the cut pieces drop onto table

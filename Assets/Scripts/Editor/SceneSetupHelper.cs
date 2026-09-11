@@ -627,8 +627,9 @@ namespace SeekingForJade.Editor
             // Spawn point for mined rocks
             GameObject spawnPt = new GameObject("RockSpawnPoint");
             spawnPt.transform.SetParent(quarry.transform);
-            spawnPt.transform.localPosition = new Vector3(0f, 0.85f, 0f);
+            spawnPt.transform.localPosition = new Vector3(0f, 1.5f, 0f);
 
+            if (!quarry.TryGetComponent<NetworkObject>(out _)) quarry.AddComponent<NetworkObject>();
             var mining = quarry.AddComponent<SeekingForJade.Environment.MiningPile>();
             SerializedObject soMine = new SerializedObject(mining);
             soMine.FindProperty("rawRockData").objectReferenceValue = riverRock;
@@ -873,13 +874,6 @@ namespace SeekingForJade.Editor
                         }
                     }
                 }
-            }
-
-            // 5. Raw Boulder at Mining Quarry
-            if (riverRock != null)
-            {
-                GameObject rQuarry = ProceduralRockGenerator.CreateRockGameObject(riverRock, 44444, new Vector3(-3.8f, 0.95f, 2.5f));
-                rQuarry.name = "Boulder_Quarry_44444";
             }
         }
 

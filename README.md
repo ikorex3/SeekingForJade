@@ -144,8 +144,10 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 - [x] First-person stylized arms/hands holding flashlight and third-person multiplayer artisan avatar (`LowPolyCharacterBuilder.cs`, `PlayerVisuals.cs`).
 
 ### Milestone 3: Multiplayer Synchronization & Bazaar Atmosphere 🔄
-- [ ] Network synchronization for procedural rocks (seed, weight, quality attributes replicated via NGO).
-- [ ] Networked slicing: Server-authoritative mesh split replicated to all observing clients.
+- [x] Network synchronization for procedural rocks (seed, weight, quality attributes replicated via NGO).
+- [x] Networked impact shattering: Server-authoritative mesh split & shard scatter replicated across peers.
+- [ ] Networked cutting station: Server-authoritative saw slicing and blade movement (`CuttingSawStation.cs`).
+- [ ] Networked trader & appraisal scale: Synchronized market display sales and scale weigh-ins (`JadeTraderNPC.cs`).
 - [ ] Player-to-player rock handoff / trade interaction.
 - [ ] Proximity voice chat (Vivox integration).
 - [ ] Workshop soundscapes: diamond blade grinding, water coolant spray, rock impact thuds.
@@ -167,6 +169,13 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 ## 📜 Changelog & Update History
 
 All changes made to the codebase are tracked here in chronological order:
+### [2026-09-11] - Network Synchronization Phase 2: Frame-0 Rock State Sync & Impact Shattering
+**Branch**: `feature/multiplayer_debug`
+- **Frame-0 Rock Sync**: Fixed Netcode warnings by eliminating unspawned `NetState.Value` writes. Host and Client now render 100% identical procedural rock meshes from frame 0 with zero shape morphing.
+- **Quarry Ejection & Elevation**: Elevated spawn origin to `1.5m` atop the quarry mound peak, preventing mound mesh intersections and popping mined rocks out cleanly for both Host and Client.
+- **Reliable Impact Shattering**: Lowered impact threshold to `1.5f` and added breaker state reset logic on throw, ensuring all thrown rocks shatter into synchronized network shards.
+- **Free Instant Mining**: Refactored `MiningPile.cs` to allow continuous instant quarry mining (`IsReady => true`) via `RequestMineRockServerRpc`.
+- **Netcode & Exception Protections**: Added mesh readability checks, explicit `Vector3` struct serialization, and `NetworkObject` lifecycle safety across `MeshSlicer.cs` and `ProceduralRock.cs`.
 
 ### [2026-09-11] - Network Synchronization Phase 1: ProceduralRock NetworkBehaviour & Network Prefab
 **Branch**: `feature/multiplayer-rock-sync`

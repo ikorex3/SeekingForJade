@@ -31,6 +31,7 @@ namespace SeekingForJade.VFX
 
             // 1. Dust Cloud Particle System
             ParticleSystem ps = fxHost.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             ParticleSystemRenderer psRenderer = fxHost.GetComponent<ParticleSystemRenderer>();
             psRenderer.material = GetParticleMaterial();
 
@@ -86,6 +87,7 @@ namespace SeekingForJade.VFX
             fxHost.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
 
             ParticleSystem ps = fxHost.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             ParticleSystemRenderer psRenderer = fxHost.GetComponent<ParticleSystemRenderer>();
             psRenderer.material = GetParticleMaterial();
 
