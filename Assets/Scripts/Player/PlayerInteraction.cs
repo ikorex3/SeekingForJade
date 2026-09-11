@@ -129,7 +129,12 @@ namespace SeekingForJade.Player
                         currentPrompt = mine.GetPromptText();
                         if (interactPressed && mine.IsReady)
                         {
-                            mine.TryMineRock(out _);
+                            if (mine.TryMineRock(out GameObject spawnedRock))
+                            {
+                                SeekingForJade.VFX.RockVFXManager.SpawnSmashImpactVFX(mine.transform.position + Vector3.up * 0.8f, Vector3.up);
+                                PlayerVisuals vis = GetComponent<PlayerVisuals>();
+                                if (vis != null) vis.TriggerMiningAnimation();
+                            }
                             return;
                         }
                     }

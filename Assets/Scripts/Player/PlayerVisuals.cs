@@ -9,6 +9,9 @@ namespace SeekingForJade.Player
         [SerializeField] private GameObject firstPersonHands;
         [SerializeField] private GameObject thirdPersonAvatar;
 
+        private Animator avatarAnimator;
+        private CharacterController charController;
+
         public GameObject FirstPersonHands
         {
             get => firstPersonHands;
@@ -18,7 +21,45 @@ namespace SeekingForJade.Player
         public GameObject ThirdPersonAvatar
         {
             get => thirdPersonAvatar;
-            set => thirdPersonAvatar = value;
+            set
+            {
+                thirdPersonAvatar = value;
+                avatarAnimator = thirdPersonAvatar != null ? thirdPersonAvatar.GetComponentInChildren<Animator>() : null;
+            }
+        }
+
+        private void Awake()
+        {
+            charController = GetComponent<CharacterController>();
+        }
+
+        public void TriggerMiningAnimation()
+        {
+            if (avatarAnimator == null && thirdPersonAvatar != null)
+            {
+                avatarAnimator = thirdPersonAvatar.GetComponentInChildren<Animator>();
+            }
+            if (avatarAnimator != null)
+            {
+                avatarAnimator.SetTrigger("Mining");
+            }
+        }
+
+        private void Update()
+        {
+            if (thirdPersonAvatar != null)
+            {
+                if (avatarAnimator == null)
+                {
+                    avatarAnimator = thirdPersonAvatar.GetComponentInChildren<Animator>();
+                }
+
+                if (avatarAnimator != null && charController != null)
+                {
+                    float horizSpeed = new Vector3(charController.velocity.x, 0f, charController.velocity.z).magnitude;
+                    avatarAnimator.SetFloat("Speed", horizSpeed);
+                }
+            }
         }
 
         public override void OnNetworkSpawn()

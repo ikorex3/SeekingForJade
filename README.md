@@ -168,6 +168,29 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 
 All changes made to the codebase are tracked here in chronological order:
 
+### [2026-09-11] - Store Assets & VFX Integration (Nature, Town, Props, Rocks, Campfire & Animations)
+**Branch**: `feature/rock-cutting-improvements`
+- **Universal Render Pipeline Material Conversion**: Built `MaterialURPConverter.cs` to batch-upgrade all imported store assets from legacy Built-in Standard shaders (`fileID: 46`) to `Universal Render Pipeline/Lit` and `Universal Render Pipeline/Particles/Unlit`, preserving diffuse albedos, normal maps, tints, smoothness, and emissions with zero magenta/pink rendering.
+- **VFX Particle Systems**:
+  - **Campfire Hearth & Smoke**: Integrated `FX_Fire_01.prefab` with firewood and stone hearth near the workshop, casting warm flickering light and drifting smoke/ember particles.
+  - **Saw Coolant Water Mist & Stone Slurry**: Added dynamic high-velocity coolant spray and stone dust particle emitter to `CuttingSawStation.cs` via `RockVFXManager.cs`, activating whenever the spinning blade cleaves into a boulder.
+  - **Smash Impact Dust & Pebble Burst**: Connected `RockVFXManager.SpawnSmashImpactVFX` to `RockImpactBreaker.cs`, generating a concussive shockwave, dust cloud, and flying stone fragments upon high-impact collisions.
+  - **Quarry Mining Dust FX**: Spawns impact dust and rock burst particles upon successfully mining a stone from `MiningPile.cs`.
+- **Environment & Nature Dressing (`SimpleNaturePack`)**:
+  - Replaced primitive cylinder trees with `SimpleNaturePack` stylized low-poly conifer and broadleaf trees (`Tree_01` to `Tree_05`).
+  - Enriched ground glades with wild bushes (`Bush_01`-`Bush_03`), flower clusters (`Flowers_01`, `Flowers_02`), forest mushrooms (`Mushroom_01`, `Mushroom_02`), tree stumps, and fallen branches.
+- **Medieval Town & Market Architecture (`FantasyMedievalTown_LITE`)**:
+  - Hung illuminated medieval brass lanterns (`Lantern_01_LITE`) with warm point lights over the cutting workbench shelter and Master Chen's stall.
+  - Added wooden perimeter fences (`Fence_01_LITE`) and town barrels (`Barrel_01_LITE`) and flower boxes (`FlowerPot_03_LITE`).
+- **Medieval Workshop & Market Props (`LowPolyMedievalPropsLite`)**:
+  - Dressed Master Chen's counter table with stacks of minted gold/bronze coins (`Coin_01`-`Coin_03`), merchant ceramic jugs, wooden cups, and lockboxes (`Box_01`).
+  - Dressed workshop with stone coolant water buckets (`Bucket_01`), toolboxes (`Box_01`), hand axes (`Axe_01`), and stacked timber planks.
+- **Faceted Rock Variety (`BrokenVector/LowPolyRockPack`)**:
+  - Integrated 24 faceted rock meshes (`Rock Type1` through `Type6`) into `ProceduralRockGenerator.cs` and perimeter scenery, normalized to handheld boulder scale and fully sliceable/shatterable.
+- **Rigged Character & Animations (`Blink/FREE_HumanLowPoly`)**:
+  - Integrated `HumanMale_Character_FREE` as the third-person multiplayer avatar with `PlayerAnimatorController.controller`.
+  - Wired `Idle`, `RunForward`, and `MiningLoop` animation clips driven dynamically by player velocity and mining interactions.
+
 ### [2026-09-11] - Master Chen Trader NPC Character Model & Dialogue System
 **Branch**: `feature/rock-cutting-improvements`
 - **Master Chen NPC 3D Model**: Implemented `LowPolyCharacterBuilder.BuildMerchantNPC` generating an authentic 3D merchant character model standing proudly behind his counter table at `(X = 3.8, Z = 2.5)` facing the customer approach path.
