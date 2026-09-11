@@ -14,6 +14,7 @@ namespace SeekingForJade.Jade
         [SerializeField] private JadeQuality quality;
         [SerializeField] private bool isInitialized = false;
         [SerializeField] private bool isSliced = false;
+        [SerializeField] private bool isTapeWrapped = false;
 
         private MeshRenderer meshRenderer;
         private MaterialPropertyBlock propertyBlock;
@@ -23,6 +24,13 @@ namespace SeekingForJade.Jade
         public float WeightKg => weightKg;
         public JadeQuality Quality => quality;
         public bool IsSliced => isSliced;
+        public bool IsTapeWrapped => isTapeWrapped;
+
+        public void SetTapeWrapped(bool wrapped)
+        {
+            isTapeWrapped = wrapped;
+            ApplyVisualProperties();
+        }
 
         private void Awake()
         {
@@ -49,6 +57,7 @@ namespace SeekingForJade.Jade
                 weightKg = Mathf.Lerp(rockData.minWeightKg, rockData.maxWeightKg, (float)rng.NextDouble());
                 JadeRarity rolledRarity = rockData.RollRarity(seed + 17);
                 quality = JadeQuality.Generate(rolledRarity, seed + 99);
+                isTapeWrapped = rockData.isTapeWrappedDefault;
             }
             else
             {
@@ -66,6 +75,7 @@ namespace SeekingForJade.Jade
             rockSeed = parent.rockSeed;
             quality = parent.quality;
             weightKg = sliceWeight;
+            isTapeWrapped = parent.isTapeWrapped;
             isSliced = true;
             isInitialized = true;
             ApplyVisualProperties();
@@ -103,7 +113,19 @@ namespace SeekingForJade.Jade
 
             meshRenderer.SetPropertyBlock(propertyBlock);
 
-            // If sliced and has cap submesh (index 1), explicitly set cap colors including standard Lit fallback
+            // Submesh 0 (outer skin): If tape wrapped, apply glossy yellow packing tape
+            if (isTapeWrapped)
+            {
+                MaterialPropertyBlock crustBlock = new MaterialPropertyBlock();
+                meshRenderer.GetPropertyBlock(crustBlock, 0);
+                Color tapeColor = new Color(0.92f, 0.72f, 0.18f, 1.0f); // Industrial packing tape yellow
+                crustBlock.SetColor("_BaseColor", tapeColor);
+                crustBlock.SetColor("_Color", tapeColor);
+                crustBlock.SetFloat("_Smoothness", 0.75f);
+                meshRenderer.SetPropertyBlock(crustBlock, 0);
+            }
+
+            // Submesh 1 (cut face): If sliced, explicitly set cap colors for solid jade rendering
             if (isSliced && meshRenderer.sharedMaterials != null && meshRenderer.sharedMaterials.Length > 1)
             {
                 MaterialPropertyBlock capBlock = new MaterialPropertyBlock();

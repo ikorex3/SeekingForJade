@@ -99,22 +99,49 @@ namespace SeekingForJade.Tools
             }
         }
 
+        private bool isInspectingTapeRock = false;
+
         private void InspectRaycast()
         {
+            isInspectingTapeRock = false;
             Ray ray = new Ray(transform.position, transform.forward);
             if (Physics.Raycast(ray, out RaycastHit hit, maxInspectionDistance))
             {
                 ProceduralRock rock = hit.collider.GetComponentInParent<ProceduralRock>();
                 if (rock != null)
                 {
-                    // Closer inspection allows light penetration
+                    if (rock.IsTapeWrapped)
+                    {
+                        // Opaque packing tape blocks all optical light penetration!
+                        isInspectingTapeRock = true;
+                        spotLight.innerSpotAngle = 5f; // Harsh sharp pinpoint reflection off tape
+                        return;
+                    }
+
+                    // Closer inspection allows light penetration into translucent jade
                     float proximity = 1.0f - Mathf.Clamp01(hit.distance / maxInspectionDistance);
-                    // Light angle alignment
                     float alignment = Mathf.Clamp01(Vector3.Dot(-hit.normal, transform.forward));
 
-                    // Boost spot focus on direct contact
+                    // Boost spot focus on direct contact to reveal internal jade
                     spotLight.innerSpotAngle = Mathf.Lerp(5f, spotLight.spotAngle * 0.8f, proximity * alignment);
                 }
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (isInspectingTapeRock && spotLight != null && spotLight.enabled)
+            {
+                GUIStyle style = new GUIStyle(GUI.skin.box);
+                style.fontSize = 14;
+                style.fontStyle = FontStyle.Bold;
+                style.normal.textColor = new Color(1.0f, 0.85f, 0.2f);
+                style.alignment = TextAnchor.MiddleCenter;
+
+                float width = 360f;
+                float height = 32f;
+                Rect rect = new Rect((Screen.width - width) * 0.5f, Screen.height * 0.65f, width, height);
+                GUI.Box(rect, "🔒 Opaque Tape: Flashlight inspection blocked!", style);
             }
         }
     }

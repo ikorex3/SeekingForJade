@@ -25,6 +25,7 @@ namespace SeekingForJade.Jade
         [Header("Visuals & Materials")]
         public Material crustMaterial;
         public Color crustTint = new Color(0.55f, 0.45f, 0.35f);
+        public bool isTapeWrappedDefault = false;
 
         [Header("Rarity Distribution")]
         public RarityWeight[] rarityTable = new RarityWeight[]

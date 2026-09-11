@@ -73,18 +73,42 @@ Every rock has unique internal attributes generated from its seed:
 
 ---
 
+### 5. Boulder Varieties & Authentic Stone Gambling Types
+Different geological origins produce radically different crust rinds (*pí*, 皮) and internal risks:
+
+| Variety | Crust Description | Characteristics | Flashlight Inspection | Base Price |
+| :--- | :--- | :--- | :--- | :--- |
+| **Hpakant River Boulder**<br>*(帕敢水石)* | Weathered golden-tan river cobble | Alluvial stone smoothed by ancient northern rivers. Well-rounded crust with balanced odds. | Full penetration (reveals translucency & water level). | $250 |
+| **Tape-Wrapped Mystery Boulder**<br>*(胶带赌石)* | Completely wrapped in opaque yellow industrial packing tape | Wrapped by shrewd merchants to conceal fractures or mask lower grades. The ultimate high-stakes blind gamble! | **BLOCKED**: Opaque plastic blocks optical penetration. | $400 |
+| **Mo-Sha Black Boulder**<br>*(莫西沙黑乌砂)* | Charcoal-black waxy rind with rough sand grains | World-famous Burmese black stone. Coveted for concealing ultra-pure glassy imperial jade, with high risk of hidden dark fissures. | Moderate penetration (requires high-power beam). | $600 |
+| **White Salt Boulder**<br>*(白盐沙)* | Chalky pale white sand crust | Ancient dry river deposit crust. Famous for yielding pristine, flawless icy glass jade cores. | High penetration (light easily scatters through white rind). | $500 |
+
+### 6. Low-Poly Cozy Aesthetic (*How to Fish* Inspired)
+- **Faceted Flat-Shaded Rendering**: Every model (trees, boulders, terrain, buildings) is constructed with unshared vertex normals to create sharp, stylized, tactile polygonal facets.
+- **Enclosed Valley Clearing**: Rolling green hills encircle the workshop clearing, isolating players in a tranquil mountain gemstone sanctuary.
+- **Winding Dirt Trails**: Warm dirt path ribbons link the central cutting workbench with the free foraging quarry and Master Chen's trading counter.
+- **Workshop Lean-To Shelter**: Rustic timber timber posts, crossbeams, and a sloped cedar plank roof protect the lapidary equipment, with a warm hanging brass lantern illuminating night cuts.
+- **Character Visual Presence**:
+  - **First-Person Hands**: Stylized rolled-up sleeve cuffs, forearms, and hands holding the gemological flashlight.
+  - **Multiplayer Third-Person Avatar**: Craftsman avatar with an artisan flat cap, visor, work apron, belt, and boots, managed automatically via `PlayerVisuals.cs`.
+
+---
+
 ## 🛠 Technical Architecture
 
 - **Engine**: Unity 6 (`6000.6.0f1`)
 - **Render Pipeline**: Universal Render Pipeline (URP `17.7.0`)
 - **Multiplayer**: Unity Netcode for GameObjects (`2.13.2`)
 - **Input System**: New Input System (`com.unity.inputsystem 1.20.0`)
+- **Procedural Generators**:
+  - `LowPolyMeshGenerator.cs`: Procedural flat-shaded conifer pines, deciduous trees, faceted terrain, boulders, and path ribbons.
+  - `LowPolyCharacterBuilder.cs`: Procedural first-person arms/hands and multiplayer artisan character meshes.
 - **Custom Shaders**:
   - `SeekingForJade/JadeInternalURP`: Subsurface light wrap, procedural FBM vein noise, cotton mask, crack lines, vitreous specular polish, and `Cull Off` double-sided cap rendering.
 - **Mesh Slicing Engine**:
   - `MeshSlicer.cs`: Real-time geometric plane-mesh split, angular vertex sorting around centroid, outwards-oriented normal winding, convex mesh collider generation, and dynamic material array management.
 - **Editor Automation**:
-  - `SceneSetupHelper.cs`: Full one-click prototype workbench, quarry, trader stall, and rock generation via menu item `SeekingForJade > Setup Prototype Scene`.
+  - `SceneSetupHelper.cs`: Full one-click prototype workbench, quarry, trader stall, environment, and rock generation via menu item `SeekingForJade > Setup Prototype Scene`.
 
 ---
 
@@ -101,20 +125,28 @@ Every rock has unique internal attributes generated from its seed:
 - [x] NPC trader with buy catalog and appraisal scale selling (`JadeTraderNPC.cs`, `PlayerWallet.cs`).
 - [x] Visual overhaul: dark slate workshop floor, industrial blade guard/hub, stable rock placement.
 
-### Milestone 2: Multiplayer Synchronization & Bazaar Atmosphere 🔄
+### Milestone 2: Low-Poly Visual Overhaul & Rock Diversity ✅
+- [x] Faceted low-poly procedural environment (*How to Fish* aesthetic) via `LowPolyMeshGenerator.cs`.
+- [x] Conifer pine trees, leafy deciduous trees, rolling hill perimeter, and winding dirt paths.
+- [x] Rustic timber workshop shelter with warm hanging brass lantern.
+- [x] 4 distinct authentic boulder varieties: Hpakant River, Mo-Sha Black Sand, White Salt, and Tape-Wrapped Mystery.
+- [x] Authentic **Tape-Wrapped Mystery Rock** mechanic blocking flashlight inspection.
+- [x] First-person stylized arms/hands holding flashlight and third-person multiplayer artisan avatar (`LowPolyCharacterBuilder.cs`, `PlayerVisuals.cs`).
+
+### Milestone 3: Multiplayer Synchronization & Bazaar Atmosphere 🔄
 - [ ] Network synchronization for procedural rocks (seed, weight, quality attributes replicated via NGO).
 - [ ] Networked slicing: Server-authoritative mesh split replicated to all observing clients.
 - [ ] Player-to-player rock handoff / trade interaction.
 - [ ] Proximity voice chat (Vivox integration).
 - [ ] Workshop soundscapes: diamond blade grinding, water coolant spray, rock impact thuds.
 
-### Milestone 3: Lapidary Crafting & Processing Mini-Games ⏳
+### Milestone 4: Lapidary Crafting & Processing Mini-Games ⏳
 - [ ] Window grinding station (*Kāi Chuāng*): mini-game to expose coin-sized jade patches.
 - [ ] Core drilling: drilling cylindrical jade cores out of cut slabs.
 - [ ] Bangle & pendant carving lathe: turn rough slabs into finished jewelry pieces for 3x - 10x value multipliers.
 - [ ] Diamond buffing wheel: polish cut faces to mirror glassy finishes.
 
-### Milestone 4: Economy, Progression & Metagame ⏳
+### Milestone 5: Economy, Progression & Metagame ⏳
 - [ ] Player progression: Apprentice -> Cutter -> Master Appraiser -> Jade Tycoon.
 - [ ] High-stakes VIP auction room with live bidding wars.
 - [ ] Specialized boulder origins (e.g., Old Mine *Lao Keng*, Mo Sha, River Gravel vs. Mountain Quarry).
@@ -125,6 +157,15 @@ Every rock has unique internal attributes generated from its seed:
 ## 📜 Changelog & Update History
 
 All changes made to the codebase are tracked here in chronological order:
+
+### [2026-09-11] - Low-Poly Art Overhaul, Boulder Diversity & Tape-Wrapped Mystery Boulder
+**Branch**: `feature/rock-cutting-improvements`
+- **Low-Poly Art Overhaul**: Implemented `LowPolyMeshGenerator.cs` generating flat-shaded conifer pines (tiered cones with random needle offsets), deciduous trees (faceted icosphere clusters), rolling valley terrain with enclosed hill perimeter, and winding dirt paths inspired by *How to Fish*.
+- **Workshop Timber Shelter**: Constructed rustic lean-to shelter with timber posts, header beams, sloped cedar plank roof, and hanging brass lantern with a warm point light over the cutting workbench.
+- **Tape-Wrapped Mystery Rock**: Created `TapeWrappedMysteryBoulder.asset` and updated `ProceduralRock.cs` and `InspectionFlashlight.cs`. Yellow industrial packing tape (`M_Tape_Wrapped.mat`) completely blocks optical inspection beams with a dedicated GUI warning (`🔒 Opaque Tape: Flashlight inspection blocked!`). Slicing the rock cleanly exposes the internal jade core while preserving the outer tape shell.
+- **Geological Boulder Varieties**: Implemented `MoShaBlackBoulder.asset` (charcoal black waxy rind, high-grade core probability) and `WhiteSaltBoulder.asset` (pale chalky white sand crust, ice jade core). Wired all 4 boulders into `JadeTraderNPC.cs` catalog with tiered pricing.
+- **First-Person & Third-Person Character Visuals**: Implemented `LowPolyCharacterBuilder.cs` and `PlayerVisuals.cs` creating stylized first-person arms with rolled-up denim sleeves and held flashlight, and a multiplayer third-person artisan avatar with cap, visor, apron, tool belt, and boots. Automatically hides local avatar head from the camera while casting player shadows.
+- **Scene Assembly**: Automated complete environment setup in `SceneSetupHelper.cs` via `SeekingForJade > Setup Prototype Scene`.
 
 ### [2026-09-11] - Visual Polish, Rock Physics & Slice Rendering Fixes
 **Branch**: `feature/rock-cutting-improvements`
