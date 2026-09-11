@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa3039f8bba1d14419ab6ffb9bc319d0, type: 3}
+  m_Name: HpakantRiverBoulder
+  m_EditorClassIdentifier: Assembly-CSharp::SeekingForJade.Jade.RockData
+  rockName: Hpakant River Boulder
+  description: A raw boulder harvested from northern riverbeds. Thick weathered yellowish-brown skin with potential jade core.
+  minWeightKg: 1.5
+  maxWeightKg: 12
+  basePurchasePrice: 250
+  crustMaterial: {fileID: 2100000, guid: bde2983f88390644ba851b55eaef54b6, type: 2}
+  crustTint: {r: 0.55, g: 0.45, b: 0.35, a: 1}
+  rarityTable:
+  - rarity: 0
+    weight: 50
+  - rarity: 1
+    weight: 30
+  - rarity: 2
+    weight: 14
+  - rarity: 3
+    weight: 5
+  - rarity: 4
+    weight: 1
