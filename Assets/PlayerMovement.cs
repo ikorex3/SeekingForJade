@@ -34,7 +34,14 @@ public class PlayerMovement : NetworkBehaviour
         {
             if (playerCamera != null)
             {
-                playerCamera.gameObject.SetActive(false);
+                if (playerCamera.TryGetComponent<Camera>(out var cam))
+                {
+                    cam.enabled = false;
+                }
+                if (playerCamera.TryGetComponent<AudioListener>(out var listener))
+                {
+                    listener.enabled = false;
+                }
             }
             return;
         }

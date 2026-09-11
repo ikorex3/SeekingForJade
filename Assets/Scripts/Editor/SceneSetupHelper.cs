@@ -7,6 +7,8 @@ using SeekingForJade.Player;
 using SeekingForJade.Slicing;
 using SeekingForJade.Tools;
 using SeekingForJade.Workstations;
+using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -625,8 +627,9 @@ namespace SeekingForJade.Editor
             // Spawn point for mined rocks
             GameObject spawnPt = new GameObject("RockSpawnPoint");
             spawnPt.transform.SetParent(quarry.transform);
-            spawnPt.transform.localPosition = new Vector3(0f, 0.85f, 0f);
+            spawnPt.transform.localPosition = new Vector3(0f, 1.5f, 0f);
 
+            if (!quarry.TryGetComponent<NetworkObject>(out _)) quarry.AddComponent<NetworkObject>();
             var mining = quarry.AddComponent<SeekingForJade.Environment.MiningPile>();
             SerializedObject soMine = new SerializedObject(mining);
             soMine.FindProperty("rawRockData").objectReferenceValue = riverRock;
@@ -782,8 +785,6 @@ namespace SeekingForJade.Editor
             GameObject existingGroup = GameObject.Find("TestRocks");
             if (existingGroup != null) Object.DestroyImmediate(existingGroup);
 
-            GameObject rockGroup = new GameObject("TestRocks");
-
             RockData riverRock = AssetDatabase.LoadAssetAtPath<RockData>("Assets/Settings/HpakantRiverBoulder.asset");
             RockData tapeRock = AssetDatabase.LoadAssetAtPath<RockData>("Assets/Settings/TapeWrappedMysteryBoulder.asset");
             RockData moShaRock = AssetDatabase.LoadAssetAtPath<RockData>("Assets/Settings/MoShaBlackBoulder.asset");
@@ -795,7 +796,6 @@ namespace SeekingForJade.Editor
             if (tapeRock != null)
             {
                 GameObject rTape = ProceduralRockGenerator.CreateRockGameObject(tapeRock, 77777, new Vector3(-0.78f, 1.08f, 3.4f));
-                rTape.transform.SetParent(rockGroup.transform);
                 rTape.transform.rotation = Quaternion.Euler(0f, 25f, 0f);
                 rTape.name = "Boulder_TapeWrapped_Mystery_77777";
             }
@@ -804,7 +804,6 @@ namespace SeekingForJade.Editor
             if (riverRock != null)
             {
                 GameObject rRiver = ProceduralRockGenerator.CreateRockGameObject(riverRock, 1024, new Vector3(-0.45f, 1.08f, 3.65f));
-                rRiver.transform.SetParent(rockGroup.transform);
                 rRiver.transform.rotation = Quaternion.Euler(0f, 40f, 0f);
                 rRiver.name = "Boulder_Hpakant_River_1024";
             }
@@ -820,9 +819,6 @@ namespace SeekingForJade.Editor
                 {
                     GameObject halfA = sliceResult.positiveSideObject;
                     GameObject halfB = sliceResult.negativeSideObject;
-
-                    halfA.transform.SetParent(rockGroup.transform);
-                    halfB.transform.SetParent(rockGroup.transform);
 
                     ProceduralRock rockA = halfA.GetComponent<ProceduralRock>();
                     if (rockA != null)
@@ -842,10 +838,6 @@ namespace SeekingForJade.Editor
                     halfB.transform.position = new Vector3(-0.04f, 1.10f, 3.5f);
                     halfB.transform.rotation = Quaternion.Euler(15f, 80f, 0f);
                 }
-                else
-                {
-                    rSliced.transform.SetParent(rockGroup.transform);
-                }
             }
 
             // 4. SMASHED MULTI-FRAGMENT BOULDER (On floor left of workbench)
@@ -854,7 +846,6 @@ namespace SeekingForJade.Editor
             {
                 GameObject rSmash = ProceduralRockGenerator.CreateRockGameObject(riverRock, 88812, new Vector3(-1.4f, 0.45f, 2.3f));
                 rSmash.name = "Boulder_Smashed_Crude_88812";
-                rSmash.transform.SetParent(rockGroup.transform);
                 RockImpactBreaker breaker = rSmash.GetComponent<RockImpactBreaker>();
                 if (breaker != null)
                 {
@@ -864,8 +855,10 @@ namespace SeekingForJade.Editor
                     rSmash.transform.position = new Vector3(-1.18f, 0.28f, 2.2f);
                     rSmash.transform.rotation = Quaternion.Euler(25f, 50f, 0f);
 
-                    foreach (Transform child in rockGroup.transform)
+                    ProceduralRock[] allRocks = Object.FindObjectsByType<ProceduralRock>();
+                    foreach (ProceduralRock rockComponent in allRocks)
                     {
+                        Transform child = rockComponent.transform;
                         if (child.name.Contains("88812") && child != rSmash.transform)
                         {
                             if (child.name.Contains("Shard"))
@@ -881,14 +874,6 @@ namespace SeekingForJade.Editor
                         }
                     }
                 }
-            }
-
-            // 5. Raw Boulder at Mining Quarry
-            if (riverRock != null)
-            {
-                GameObject rQuarry = ProceduralRockGenerator.CreateRockGameObject(riverRock, 44444, new Vector3(-3.8f, 0.95f, 2.5f));
-                rQuarry.transform.SetParent(rockGroup.transform);
-                rQuarry.name = "Boulder_Quarry_44444";
             }
         }
 
@@ -1002,6 +987,107 @@ namespace SeekingForJade.Editor
                 }
             }
             return null;
+        }
+
+        [MenuItem("SeekingForJade/Networking/Create Rock Network Prefab")]
+        public static GameObject CreateRockNetworkPrefab()
+        {
+            string prefabPath = "Assets/ProceduralRockNetwork.prefab";
+            GameObject existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (existingPrefab != null)
+            {
+                Debug.Log($"[SceneSetupHelper] Rock network prefab already exists at {prefabPath}");
+                RegisterPrefabInNetworkList(existingPrefab);
+                return existingPrefab;
+            }
+
+            GameObject temp = new GameObject("ProceduralRockNetwork");
+            temp.AddComponent<MeshFilter>();
+            temp.AddComponent<MeshRenderer>();
+
+            MeshCollider collider = temp.AddComponent<MeshCollider>();
+            collider.convex = true;
+
+            Rigidbody rb = temp.AddComponent<Rigidbody>();
+            rb.mass = 8.0f;
+            rb.linearDamping = 0.8f;
+            rb.angularDamping = 2.5f;
+            rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+
+            NetworkObject netObj = temp.AddComponent<NetworkObject>();
+            NetworkTransform netTransform = temp.AddComponent<NetworkTransform>();
+            netTransform.InLocalSpace = false;
+            netTransform.Interpolate = true;
+
+            temp.AddComponent<ProceduralRock>();
+
+            RockImpactBreaker breaker = temp.AddComponent<RockImpactBreaker>();
+            breaker.JadeCapMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Jade_Internal.mat");
+
+            GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(temp, prefabPath);
+            Object.DestroyImmediate(temp);
+
+            Debug.Log($"<color=green>[SceneSetupHelper]</color> Created Rock network prefab at {prefabPath}");
+            RegisterPrefabInNetworkList(savedPrefab);
+            return savedPrefab;
+        }
+
+        [MenuItem("SeekingForJade/Networking/Add Network Components to Scene Rocks")]
+        public static void AddNetworkComponentsToSceneRocks()
+        {
+            ProceduralRock[] rocks = Object.FindObjectsByType<ProceduralRock>(FindObjectsInactive.Include);
+            int count = 0;
+
+            foreach (var rock in rocks)
+            {
+                bool modified = false;
+
+                if (!rock.TryGetComponent<NetworkObject>(out _))
+                {
+                    rock.gameObject.AddComponent<NetworkObject>();
+                    modified = true;
+                }
+
+                if (!rock.TryGetComponent<NetworkTransform>(out var nt))
+                {
+                    nt = rock.gameObject.AddComponent<NetworkTransform>();
+                    nt.InLocalSpace = false;
+                    nt.Interpolate = true;
+                    modified = true;
+                }
+
+                if (modified)
+                {
+                    EditorUtility.SetDirty(rock.gameObject);
+                    count++;
+                }
+            }
+
+            if (count > 0)
+            {
+                EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+                Debug.Log($"<color=green>[SceneSetupHelper]</color> Added NetworkObject & NetworkTransform to {count} rocks in scene.");
+            }
+            else
+            {
+                Debug.Log($"[SceneSetupHelper] All {rocks.Length} rocks in scene already have NetworkObject & NetworkTransform.");
+            }
+        }
+
+        public static void RegisterPrefabInNetworkList(GameObject prefab)
+        {
+            if (prefab == null) return;
+
+            NetworkPrefabsList list = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>("Assets/DefaultNetworkPrefabs.asset");
+            if (list == null) return;
+
+            if (!list.Contains(prefab))
+            {
+                list.Add(new NetworkPrefab { Prefab = prefab });
+                EditorUtility.SetDirty(list);
+                AssetDatabase.SaveAssets();
+                Debug.Log($"<color=green>[SceneSetupHelper]</color> Registered {prefab.name} into DefaultNetworkPrefabs.asset");
+            }
         }
     }
 }

@@ -46,6 +46,8 @@ namespace SeekingForJade.Slicing
         {
             public GameObject positiveSideObject;
             public GameObject negativeSideObject;
+            public Vector3 localPlanePoint;
+            public Vector3 localPlaneNormal;
             public bool success;
         }
 
@@ -59,6 +61,19 @@ namespace SeekingForJade.Slicing
             if (filter == null || renderer == null || filter.sharedMesh == null) return result;
 
             Mesh originalMesh = filter.sharedMesh;
+            if (originalMesh != null && !originalMesh.isReadable)
+            {
+                SeekingForJade.Jade.ProceduralRock procRock = target.GetComponent<SeekingForJade.Jade.ProceduralRock>();
+                int seed = procRock != null && procRock.Seed != 0 ? procRock.Seed : UnityEngine.Random.Range(100000, 999999);
+                originalMesh = SeekingForJade.Jade.ProceduralRockGenerator.GenerateRockMesh(seed);
+                filter.sharedMesh = originalMesh;
+                if (target.TryGetComponent<MeshCollider>(out var col))
+                {
+                    col.sharedMesh = originalMesh;
+                    col.convex = true;
+                }
+            }
+
             Transform targetTransform = target.transform;
 
             // Convert world plane to local space
@@ -174,11 +189,21 @@ namespace SeekingForJade.Slicing
             UpdateCollider(target, meshPositive);
 
             // Create GameObject B
-            GameObject objectB = UnityEngine.Object.Instantiate(target, targetTransform.parent);
+            GameObject netPrefab = SeekingForJade.Jade.ProceduralRockGenerator.GetRockNetworkPrefab();
+            GameObject objectB;
+            if (netPrefab != null && target.GetComponent<SeekingForJade.Jade.ProceduralRock>() != null)
+            {
+                objectB = UnityEngine.Object.Instantiate(netPrefab, targetTransform.position, targetTransform.rotation, targetTransform.parent);
+                objectB.transform.localScale = targetTransform.localScale;
+            }
+            else
+            {
+                objectB = UnityEngine.Object.Instantiate(target, targetTransform.parent);
+                objectB.transform.position = targetTransform.position;
+                objectB.transform.rotation = targetTransform.rotation;
+                objectB.transform.localScale = targetTransform.localScale;
+            }
             objectB.name = target.name + "_SliceB";
-            objectB.transform.position = targetTransform.position;
-            objectB.transform.rotation = targetTransform.rotation;
-            objectB.transform.localScale = targetTransform.localScale;
 
             MeshFilter filterB = objectB.GetComponent<MeshFilter>();
             MeshRenderer rendererB = objectB.GetComponent<MeshRenderer>();
@@ -191,16 +216,138 @@ namespace SeekingForJade.Slicing
             Rigidbody rbB = objectB.GetComponent<Rigidbody>();
             if (rbA != null && rbB != null)
             {
-                rbA.linearVelocity = Vector3.zero;
-                rbB.linearVelocity = Vector3.zero;
+                if (!rbA.isKinematic) rbA.linearVelocity = Vector3.zero;
+                if (!rbB.isKinematic) rbB.linearVelocity = Vector3.zero;
                 rbA.AddForce(planeNormal * 0.5f, ForceMode.Impulse);
                 rbB.AddForce(-planeNormal * 0.5f, ForceMode.Impulse);
             }
 
             result.positiveSideObject = target;
             result.negativeSideObject = objectB;
+            result.localPlanePoint = localPlanePoint;
+            result.localPlaneNormal = localPlaneNormal;
             result.success = true;
             return result;
+        }
+
+        public static bool SliceSingleSideLocal(GameObject target, Vector3 localPlanePoint, Vector3 localPlaneNormal, Material capMaterial, bool isPositiveSide)
+        {
+            if (target == null) return false;
+            MeshFilter filter = target.GetComponent<MeshFilter>();
+            MeshRenderer renderer = target.GetComponent<MeshRenderer>();
+            if (filter == null || renderer == null || filter.sharedMesh == null) return false;
+
+            Mesh originalMesh = filter.sharedMesh;
+            if (originalMesh != null && !originalMesh.isReadable)
+            {
+                SeekingForJade.Jade.ProceduralRock procRock = target.GetComponent<SeekingForJade.Jade.ProceduralRock>();
+                int seed = procRock != null && procRock.Seed != 0 ? procRock.Seed : UnityEngine.Random.Range(100000, 999999);
+                originalMesh = SeekingForJade.Jade.ProceduralRockGenerator.GenerateRockMesh(seed);
+                filter.sharedMesh = originalMesh;
+                if (target.TryGetComponent<MeshCollider>(out var col))
+                {
+                    col.sharedMesh = originalMesh;
+                    col.convex = true;
+                }
+            }
+            Vector3[] origVerts = originalMesh.vertices;
+            Vector3[] origNorms = originalMesh.normals.Length == origVerts.Length ? originalMesh.normals : new Vector3[origVerts.Length];
+            Vector2[] origUvs = originalMesh.uv.Length == origVerts.Length ? originalMesh.uv : new Vector2[origVerts.Length];
+            int submeshCount = originalMesh.subMeshCount;
+
+            float[] distances = new float[origVerts.Length];
+            int positiveCount = 0;
+            int negativeCount = 0;
+
+            for (int i = 0; i < origVerts.Length; i++)
+            {
+                distances[i] = Vector3.Dot(localPlaneNormal, origVerts[i] - localPlanePoint);
+                if (distances[i] > 0.0001f) positiveCount++;
+                else if (distances[i] < -0.0001f) negativeCount++;
+            }
+
+            if (positiveCount == 0 || negativeCount == 0) return false;
+
+            SlicedSide sidePositive = new SlicedSide();
+            SlicedSide sideNegative = new SlicedSide();
+            sidePositive.InitializeSubmeshes(submeshCount);
+            sideNegative.InitializeSubmeshes(submeshCount);
+
+            for (int sub = 0; sub < submeshCount; sub++)
+            {
+                int[] triangles = originalMesh.GetTriangles(sub);
+                for (int i = 0; i < triangles.Length; i += 3)
+                {
+                    int i0 = triangles[i];
+                    int i1 = triangles[i + 1];
+                    int i2 = triangles[i + 2];
+
+                    float d0 = distances[i0];
+                    float d1 = distances[i1];
+                    float d2 = distances[i2];
+
+                    bool side0 = d0 > 0f;
+                    bool side1 = d1 > 0f;
+                    bool side2 = d2 > 0f;
+
+                    if (side0 == side1 && side1 == side2)
+                    {
+                        SlicedSide targetSide = side0 ? sidePositive : sideNegative;
+                        int n0 = targetSide.AddVertex(origVerts[i0], origNorms[i0], origUvs[i0]);
+                        int n1 = targetSide.AddVertex(origVerts[i1], origNorms[i1], origUvs[i1]);
+                        int n2 = targetSide.AddVertex(origVerts[i2], origNorms[i2], origUvs[i2]);
+                        targetSide.AddTriangle(sub, n0, n1, n2);
+                    }
+                    else
+                    {
+                        SplitTriangle(
+                            sub,
+                            i0, i1, i2,
+                            origVerts, origNorms, origUvs, distances,
+                            localPlanePoint, localPlaneNormal,
+                            sidePositive, sideNegative
+                        );
+                    }
+                }
+            }
+
+            SlicedSide targetSideToUse = isPositiveSide ? sidePositive : sideNegative;
+            GenerateCap(targetSideToUse, localPlanePoint, localPlaneNormal, isPositiveSide);
+
+            Mesh slicedMesh = CreateMeshFromSide(targetSideToUse, originalMesh.name + (isPositiveSide ? "_SliceA" : "_SliceB"));
+
+            Material[] origMaterials = renderer.sharedMaterials;
+            Material effectiveCapMat = capMaterial;
+            if (effectiveCapMat == null)
+            {
+#if UNITY_EDITOR
+                effectiveCapMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Jade_Internal.mat");
+#else
+                effectiveCapMat = Resources.Load<Material>("M_Jade_Internal");
+#endif
+                if (effectiveCapMat == null && origMaterials != null && origMaterials.Length > 0)
+                {
+                    effectiveCapMat = origMaterials[0];
+                }
+            }
+
+            Material[] newMaterials;
+            if (effectiveCapMat != null)
+            {
+                newMaterials = new Material[origMaterials.Length + 1];
+                Array.Copy(origMaterials, newMaterials, origMaterials.Length);
+                newMaterials[newMaterials.Length - 1] = effectiveCapMat;
+            }
+            else
+            {
+                newMaterials = origMaterials;
+            }
+
+            filter.sharedMesh = slicedMesh;
+            renderer.sharedMaterials = newMaterials;
+            UpdateCollider(target, slicedMesh);
+
+            return true;
         }
 
         private static void SplitTriangle(

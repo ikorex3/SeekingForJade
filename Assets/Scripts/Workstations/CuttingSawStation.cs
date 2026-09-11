@@ -77,14 +77,16 @@ namespace SeekingForJade.Workstations
             Rigidbody rb = rock.GetComponent<Rigidbody>();
             if (rb != null)
             {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
                 rb.isKinematic = true;
             }
 
             rock.transform.position = rockClampPoint != null ? rockClampPoint.position : transform.position;
             rock.transform.rotation = rockClampPoint != null ? rockClampPoint.rotation : transform.rotation;
-            rock.transform.SetParent(rockClampPoint);
 
             OnRockLoaded?.Invoke(rock);
             return true;
@@ -159,8 +161,6 @@ namespace SeekingForJade.Workstations
             Vector3 slicePoint = rockClampPoint != null ? rockClampPoint.position : rockObj.transform.position;
             Vector3 worldNormal = transform.TransformDirection(cutPlaneNormal).normalized;
 
-            rockObj.transform.SetParent(null);
-
             // Execute dynamic mesh slice
             var sliceResult = MeshSlicer.Slice(rockObj, slicePoint, worldNormal, jadeCapMaterial);
 
@@ -173,6 +173,7 @@ namespace SeekingForJade.Workstations
                 ProceduralRock rockA = pieceA.GetComponent<ProceduralRock>();
                 if (rockA != null)
                 {
+                    rockA.SetSliceData(sliceResult.localPlanePoint, sliceResult.localPlaneNormal, true);
                     rockA.MarkAsSawCut();
                 }
 
@@ -183,6 +184,7 @@ namespace SeekingForJade.Workstations
                     rockB = pieceB.AddComponent<ProceduralRock>();
                 }
                 rockB.CopyFromParent(clampedRock, clampedRock.WeightKg * 0.5f);
+                rockB.SetSliceData(sliceResult.localPlanePoint, sliceResult.localPlaneNormal, false);
                 rockB.MarkAsSawCut();
 
                 // Unfreeze rigidbodies so the cut pieces drop onto table

@@ -1,3 +1,5 @@
+using SeekingForJade.Economy;
+using SeekingForJade.Environment;
 using SeekingForJade.Jade;
 using SeekingForJade.Workstations;
 using Unity.Netcode;
@@ -18,6 +20,19 @@ namespace SeekingForJade.Player
         [SerializeField] private ProceduralRock carriedRock;
         [SerializeField] private string currentPrompt = "";
 
+        [Header("Network State")]
+        private readonly NetworkVariable<NetworkObjectReference> netCarriedRock = new(
+            default,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+        private readonly NetworkVariable<float> netCameraPitch = new(
+            0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner
+        );
+
         private void Awake()
         {
             if (playerCamera == null)
@@ -35,9 +50,83 @@ namespace SeekingForJade.Player
             }
         }
 
+        public override void OnNetworkSpawn()
+        {
+            netCarriedRock.OnValueChanged += OnCarriedRockChanged;
+
+            if (netCarriedRock.Value.TryGet(out NetworkObject rockNetObj))
+            {
+                OnCarriedRockChanged(default, netCarriedRock.Value);
+            }
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            netCarriedRock.OnValueChanged -= OnCarriedRockChanged;
+        }
+
+        private void OnCarriedRockChanged(NetworkObjectReference oldRef, NetworkObjectReference newRef)
+        {
+            if (newRef.TryGet(out NetworkObject newRockObj))
+            {
+                carriedRock = newRockObj.GetComponent<ProceduralRock>();
+                if (carriedRock != null)
+                {
+                    // Disable collider while carried so player movement is never blocked!
+                    if (carriedRock.TryGetComponent<Collider>(out var col))
+                    {
+                        col.enabled = false;
+                    }
+                    if (carriedRock.TryGetComponent<Rigidbody>(out var rb))
+                    {
+                        if (!rb.isKinematic)
+                        {
+                            rb.linearVelocity = Vector3.zero;
+                            rb.angularVelocity = Vector3.zero;
+                        }
+                        rb.isKinematic = true;
+                    }
+                    if (carriedRock.TryGetComponent<Unity.Netcode.Components.NetworkTransform>(out var netTransform))
+                    {
+                        netTransform.enabled = false;
+                    }
+                }
+            }
+            else
+            {
+                if (carriedRock != null)
+                {
+                    if (carriedRock.TryGetComponent<Collider>(out var col))
+                    {
+                        col.enabled = true;
+                    }
+                    if (carriedRock.TryGetComponent<Unity.Netcode.Components.NetworkTransform>(out var netTransform))
+                    {
+                        netTransform.enabled = true;
+                    }
+                    carriedRock = null;
+                }
+            }
+        }
+
         private void Update()
         {
-            if (IsSpawned && !IsOwner) return;
+            if (IsSpawned && !IsOwner)
+            {
+                // Synchronize remote player's camera pitch so head/arms tilt
+                if (playerCamera != null)
+                {
+                    playerCamera.localEulerAngles = new Vector3(netCameraPitch.Value, 0f, 0f);
+                }
+                return;
+            }
+
+            if (playerCamera != null && IsSpawned && IsOwner)
+            {
+                float pitch = playerCamera.localEulerAngles.x;
+                if (pitch > 180f) pitch -= 360f;
+                netCameraPitch.Value = pitch;
+            }
 
             currentPrompt = "";
 
@@ -57,9 +146,6 @@ namespace SeekingForJade.Player
             // Handle Carried Rock
             if (carriedRock != null)
             {
-                carriedRock.transform.position = holdPoint.position;
-                carriedRock.transform.rotation = holdPoint.rotation;
-
                 if (hitSomething)
                 {
                     CuttingSawStation saw = hit.collider.GetComponentInParent<CuttingSawStation>();
@@ -68,9 +154,7 @@ namespace SeekingForJade.Player
                         currentPrompt = "[E] Clamp Rock into Saw";
                         if (interactPressed)
                         {
-                            ProceduralRock rockToClamp = carriedRock;
-                            carriedRock = null;
-                            saw.TryLoadRock(rockToClamp);
+                            ClampRockToSaw(saw);
                             return;
                         }
                     }
@@ -123,24 +207,41 @@ namespace SeekingForJade.Player
                     }
 
                     // Check Mining Pile
-                    SeekingForJade.Environment.MiningPile mine = hit.collider.GetComponentInParent<SeekingForJade.Environment.MiningPile>();
+                    MiningPile mine = hit.collider.GetComponentInParent<MiningPile>();
                     if (mine != null)
                     {
                         currentPrompt = mine.GetPromptText();
                         if (interactPressed && mine.IsReady)
                         {
-                            if (mine.TryMineRock(out GameObject spawnedRock))
+                            if (IsSpawned && !IsServer)
                             {
-                                SeekingForJade.VFX.RockVFXManager.SpawnSmashImpactVFX(mine.transform.position + Vector3.up * 0.8f, Vector3.up);
+                                if (mine.TryGetComponent<NetworkObject>(out var mineNetObj))
+                                {
+                                    RequestMineRockServerRpc(mineNetObj);
+                                }
+                                else
+                                {
+                                    RequestMineRockPositionServerRpc(mine.transform.position);
+                                }
+
                                 PlayerVisuals vis = GetComponent<PlayerVisuals>();
                                 if (vis != null) vis.TriggerMiningAnimation();
+                            }
+                            else
+                            {
+                                if (mine.TryMineRock(out GameObject spawnedRock))
+                                {
+                                    SeekingForJade.VFX.RockVFXManager.SpawnSmashImpactVFX(mine.transform.position + Vector3.up * 0.8f, Vector3.up);
+                                    PlayerVisuals vis = GetComponent<PlayerVisuals>();
+                                    if (vis != null) vis.TriggerMiningAnimation();
+                                }
                             }
                             return;
                         }
                     }
 
                     // Check Trader NPC & Appraisal Scale
-                    SeekingForJade.Economy.JadeTraderNPC trader = hit.collider.GetComponentInParent<SeekingForJade.Economy.JadeTraderNPC>();
+                    JadeTraderNPC trader = hit.collider.GetComponentInParent<JadeTraderNPC>();
                     if (trader != null)
                     {
                         bool lookingAtScale = hit.collider.name.Contains("Scale") || hit.collider.name.Contains("Plate");
@@ -183,7 +284,7 @@ namespace SeekingForJade.Player
                             currentPrompt = $"[E] or [B] Buy {rock.Data?.rockName ?? "Boulder"} (${rock.MarketPrice}) | [F] Inspect with Torch";
                             if (interactPressed || buyPressed)
                             {
-                                SeekingForJade.Economy.JadeTraderNPC traderNpc = Object.FindAnyObjectByType<SeekingForJade.Economy.JadeTraderNPC>();
+                                JadeTraderNPC traderNpc = Object.FindAnyObjectByType<JadeTraderNPC>();
                                 if (traderNpc != null && traderNpc.TryBuyDisplayRock(rock))
                                 {
                                     PickUpRock(rock);
@@ -208,16 +309,66 @@ namespace SeekingForJade.Player
             }
         }
 
+        private void LateUpdate()
+        {
+            if (holdPoint == null) return;
+
+            // 1. Local owner position update for zero lag
+            if (carriedRock != null)
+            {
+                carriedRock.transform.position = holdPoint.position;
+                carriedRock.transform.rotation = holdPoint.rotation;
+            }
+
+            // 2. Server updates rock position on network so NetworkTransform replicates it
+            if (IsServer && netCarriedRock.Value.TryGet(out NetworkObject rockNetObj))
+            {
+                rockNetObj.transform.position = holdPoint.position;
+                rockNetObj.transform.rotation = holdPoint.rotation;
+            }
+        }
+
         private void PickUpRock(ProceduralRock rock)
         {
+            if (rock == null) return;
+
             carriedRock = rock;
-            Rigidbody rb = rock.GetComponent<Rigidbody>();
-            if (rb != null)
+
+            // Disable collider immediately so it never blocks the player's CharacterController
+            if (rock.TryGetComponent<Collider>(out var col))
             {
-                rb.isKinematic = true;
-                rb.linearVelocity = Vector3.zero;
+                col.enabled = false;
             }
-            rock.transform.SetParent(holdPoint);
+
+            if (rock.TryGetComponent<Rigidbody>(out var rb))
+            {
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+                rb.isKinematic = true;
+            }
+
+            if (rock.TryGetComponent<Unity.Netcode.Components.NetworkTransform>(out var netTransform))
+            {
+                netTransform.enabled = false;
+            }
+
+            if (IsSpawned)
+            {
+                if (rock.TryGetComponent<NetworkObject>(out var rockNetObj))
+                {
+                    if (IsServer && !rockNetObj.IsSpawned)
+                    {
+                        rockNetObj.Spawn();
+                    }
+                    if (rockNetObj.IsSpawned)
+                    {
+                        RequestPickUpServerRpc(rockNetObj);
+                    }
+                }
+            }
         }
 
         private void ThrowRock()
@@ -227,19 +378,33 @@ namespace SeekingForJade.Player
             ProceduralRock rock = carriedRock;
             carriedRock = null;
 
-            rock.transform.SetParent(null);
-            Rigidbody rb = rock.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.isKinematic = false;
-                rb.linearVelocity = playerCamera.forward * throwForce;
-                rb.angularVelocity = Random.insideUnitSphere * 6f;
-            }
+            Vector3 throwVelocity = playerCamera != null ? playerCamera.forward * throwForce : transform.forward * throwForce;
 
-            RockImpactBreaker breaker = rock.GetComponent<RockImpactBreaker>();
-            if (breaker != null)
+            if (IsSpawned)
             {
-                breaker.IsArmed = true;
+                RequestThrowServerRpc(throwVelocity);
+            }
+            else
+            {
+                Vector3 throwDir = throwVelocity.sqrMagnitude > 0.01f ? throwVelocity.normalized : transform.forward;
+                rock.transform.position += throwDir * 0.6f;
+
+                if (rock.TryGetComponent<Collider>(out var col))
+                {
+                    col.enabled = true;
+                }
+                if (rock.TryGetComponent<Rigidbody>(out var rb))
+                {
+                    rb.isKinematic = false;
+                    rb.linearVelocity = throwVelocity;
+                    rb.angularVelocity = Random.insideUnitSphere * 6f;
+                }
+
+                if (rock.TryGetComponent<RockImpactBreaker>(out var breaker))
+                {
+                    breaker.ResetBreaker();
+                    breaker.IsArmed = true;
+                }
             }
         }
 
@@ -250,18 +415,198 @@ namespace SeekingForJade.Player
             ProceduralRock rock = carriedRock;
             carriedRock = null;
 
-            rock.transform.SetParent(null);
-            Rigidbody rb = rock.GetComponent<Rigidbody>();
-            if (rb != null)
+            Vector3 dropVelocity = playerCamera != null ? playerCamera.forward * 1.5f : transform.forward * 1.5f;
+
+            if (IsSpawned)
             {
-                rb.isKinematic = false;
-                rb.linearVelocity = playerCamera.forward * 1.5f;
+                RequestDropServerRpc(dropVelocity);
+            }
+            else
+            {
+                if (rock.TryGetComponent<Collider>(out var col))
+                {
+                    col.enabled = true;
+                }
+                if (rock.TryGetComponent<Rigidbody>(out var rb))
+                {
+                    rb.isKinematic = false;
+                    rb.linearVelocity = dropVelocity;
+                }
+
+                if (rock.TryGetComponent<RockImpactBreaker>(out var breaker))
+                {
+                    breaker.IsArmed = false;
+                }
+            }
+        }
+
+        private void ClampRockToSaw(CuttingSawStation saw)
+        {
+            ProceduralRock rockToClamp = carriedRock;
+            carriedRock = null;
+
+            if (IsSpawned)
+            {
+                RequestClampRockToSawServerRpc();
             }
 
-            RockImpactBreaker breaker = rock.GetComponent<RockImpactBreaker>();
-            if (breaker != null)
+            saw.TryLoadRock(rockToClamp);
+        }
+
+        [ServerRpc]
+        private void RequestPickUpServerRpc(NetworkObjectReference rockRef)
+        {
+            if (!rockRef.TryGet(out NetworkObject rockNetObj)) return;
+
+            if (Vector3.Distance(transform.position, rockNetObj.transform.position) > reachDistance + 2.0f)
             {
-                breaker.IsArmed = false;
+                return;
+            }
+
+            netCarriedRock.Value = rockRef;
+
+            if (rockNetObj.TryGetComponent<ProceduralRock>(out var rock))
+            {
+                if (rock.TryGetComponent<Rigidbody>(out var rb))
+                {
+                    if (!rb.isKinematic)
+                    {
+                        rb.linearVelocity = Vector3.zero;
+                        rb.angularVelocity = Vector3.zero;
+                    }
+                    rb.isKinematic = true;
+                }
+
+                SetRockColliderClientRpc(rockRef, false);
+
+                if (rock.TryGetComponent<RockImpactBreaker>(out var breaker))
+                {
+                    breaker.ResetBreaker();
+                    breaker.IsArmed = true;
+                }
+            }
+        }
+
+        [ServerRpc]
+        private void RequestThrowServerRpc(Vector3 throwVelocity)
+        {
+            if (netCarriedRock.Value.TryGet(out NetworkObject rockNetObj))
+            {
+                netCarriedRock.Value = default;
+
+                SetRockColliderClientRpc(rockNetObj, true);
+
+                if (rockNetObj.TryGetComponent<ProceduralRock>(out var rock))
+                {
+                    Vector3 throwDir = throwVelocity.sqrMagnitude > 0.01f ? throwVelocity.normalized : transform.forward;
+                    rock.transform.position += throwDir * 0.6f;
+
+                    if (rock.TryGetComponent<Rigidbody>(out var rb))
+                    {
+                        rb.isKinematic = false;
+                        rb.linearVelocity = throwVelocity;
+                        rb.angularVelocity = Random.insideUnitSphere * 6f;
+                    }
+
+                    if (rock.TryGetComponent<RockImpactBreaker>(out var breaker))
+                    {
+                        breaker.ResetBreaker();
+                        breaker.IsArmed = true;
+                    }
+                }
+            }
+        }
+
+        [ServerRpc]
+        private void RequestDropServerRpc(Vector3 dropVelocity)
+        {
+            if (netCarriedRock.Value.TryGet(out NetworkObject rockNetObj))
+            {
+                netCarriedRock.Value = default;
+
+                SetRockColliderClientRpc(rockNetObj, true);
+
+                if (rockNetObj.TryGetComponent<ProceduralRock>(out var rock))
+                {
+                    if (rock.TryGetComponent<Rigidbody>(out var rb))
+                    {
+                        rb.isKinematic = false;
+                        rb.linearVelocity = dropVelocity;
+                    }
+
+                    if (rock.TryGetComponent<RockImpactBreaker>(out var breaker))
+                    {
+                        breaker.IsArmed = false;
+                    }
+                }
+            }
+        }
+
+        [ServerRpc]
+        private void RequestClampRockToSawServerRpc()
+        {
+            if (netCarriedRock.Value.TryGet(out NetworkObject rockNetObj))
+            {
+                netCarriedRock.Value = default;
+                SetRockColliderClientRpc(rockNetObj, true);
+            }
+        }
+
+        [ClientRpc]
+        private void SetRockColliderClientRpc(NetworkObjectReference rockRef, bool colliderEnabled)
+        {
+            if (rockRef.TryGet(out NetworkObject rockNetObj))
+            {
+                if (rockNetObj.TryGetComponent<Collider>(out var col))
+                {
+                    col.enabled = colliderEnabled;
+                }
+                if (rockNetObj.TryGetComponent<Unity.Netcode.Components.NetworkTransform>(out var netTransform))
+                {
+                    netTransform.enabled = colliderEnabled;
+                }
+                if (rockNetObj.TryGetComponent<Rigidbody>(out var rb))
+                {
+                    if (!colliderEnabled && !rb.isKinematic)
+                    {
+                        rb.linearVelocity = Vector3.zero;
+                        rb.angularVelocity = Vector3.zero;
+                    }
+                    rb.isKinematic = !colliderEnabled;
+                }
+            }
+        }
+
+        [ServerRpc]
+        private void RequestMineRockServerRpc(NetworkObjectReference mineRef)
+        {
+            if (mineRef.TryGet(out NetworkObject mineObj))
+            {
+                MiningPile mine = mineObj.GetComponent<MiningPile>();
+                if (mine != null && mine.IsReady)
+                {
+                    if (mine.TryMineRock(out GameObject spawnedRock))
+                    {
+                        SeekingForJade.VFX.RockVFXManager.SpawnSmashImpactVFX(mine.transform.position + Vector3.up * 0.8f, Vector3.up);
+                    }
+                }
+            }
+        }
+
+        [ServerRpc]
+        private void RequestMineRockPositionServerRpc(Vector3 position)
+        {
+            MiningPile[] piles = Object.FindObjectsByType<MiningPile>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var mine in piles)
+            {
+                if (Vector3.Distance(mine.transform.position, position) < 2.5f && mine.IsReady)
+                {
+                    if (mine.TryMineRock(out GameObject spawnedRock))
+                    {
+                        SeekingForJade.VFX.RockVFXManager.SpawnSmashImpactVFX(mine.transform.position + Vector3.up * 0.8f, Vector3.up);
+                    }
+                    break;
+                }
             }
         }
 
