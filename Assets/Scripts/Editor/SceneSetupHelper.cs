@@ -515,20 +515,37 @@ namespace SeekingForJade.Editor
             GameObject quarry = new GameObject("MiningQuarry");
             quarry.transform.position = new Vector3(-3.8f, 0f, 2.5f);
 
-            // Visual faceted rock pile
+            // Watertight organic bedrock outcrop
             GameObject mound = new GameObject("RockMound");
             mound.transform.SetParent(quarry.transform);
-            mound.transform.localPosition = new Vector3(0f, 0.2f, 0f);
-            mound.transform.localScale = new Vector3(2.5f, 0.85f, 2.5f);
+            mound.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+            mound.transform.localScale = Vector3.one;
+
             MeshFilter qmf = mound.AddComponent<MeshFilter>();
             MeshRenderer qmr = mound.AddComponent<MeshRenderer>();
-            qmf.sharedMesh = LowPolyMeshGenerator.GenerateLowPolyBoulder(888, 1.0f);
+            MeshCollider qmc = mound.AddComponent<MeshCollider>();
+            Mesh outcropMesh = LowPolyMeshGenerator.GenerateQuarryRockOutcrop(888);
+            qmf.sharedMesh = outcropMesh;
+            qmc.sharedMesh = outcropMesh;
             qmr.sharedMaterial = mats.dirt;
+
+            // Decorative low-poly boulders around quarry perimeter
+            for (int i = 0; i < 3; i++)
+            {
+                float ang = i * 2.1f;
+                GameObject qb = new GameObject($"QuarryBoulder_{i}");
+                qb.transform.SetParent(quarry.transform);
+                qb.transform.localPosition = new Vector3(Mathf.Cos(ang) * 1.5f, 0.1f, Mathf.Sin(ang) * 1.5f);
+                MeshFilter bmf = qb.AddComponent<MeshFilter>();
+                MeshRenderer bmr = qb.AddComponent<MeshRenderer>();
+                bmf.sharedMesh = LowPolyMeshGenerator.GenerateLowPolyBoulder(770 + i, 0.45f);
+                bmr.sharedMaterial = mats.dirt;
+            }
 
             // Spawn point for mined rocks
             GameObject spawnPt = new GameObject("RockSpawnPoint");
             spawnPt.transform.SetParent(quarry.transform);
-            spawnPt.transform.localPosition = new Vector3(0f, 0.8f, 0f);
+            spawnPt.transform.localPosition = new Vector3(0f, 0.85f, 0f);
 
             var mining = quarry.AddComponent<SeekingForJade.Environment.MiningPile>();
             SerializedObject soMine = new SerializedObject(mining);
@@ -536,59 +553,82 @@ namespace SeekingForJade.Editor
             soMine.FindProperty("rockSpawnPoint").objectReferenceValue = spawnPt.transform;
             soMine.ApplyModifiedProperties();
 
-            // Setup Trader Stall
+            // Setup Trader Stall with Physical Market Inspection Table
             GameObject existingTrader = GameObject.Find("TraderStall");
             if (existingTrader != null) Object.DestroyImmediate(existingTrader);
 
             GameObject trader = new GameObject("TraderStall");
             trader.transform.position = new Vector3(3.8f, 0f, 2.5f);
 
+            // Wide counter table for scale + 4 candidate display slots
             GameObject counter = GameObject.CreatePrimitive(PrimitiveType.Cube);
             counter.name = "CounterTable";
             counter.transform.SetParent(trader.transform);
             counter.transform.localPosition = new Vector3(0f, 0.85f, 0f);
-            counter.transform.localScale = new Vector3(2.2f, 0.1f, 1.2f);
+            counter.transform.localScale = new Vector3(3.2f, 0.1f, 1.5f);
             counter.GetComponent<MeshRenderer>().sharedMaterial = mats.wood;
 
             // Table legs
             for (int i = 0; i < 4; i++)
             {
-                float lx = (i % 2 == 0) ? -0.95f : 0.95f;
-                float lz = (i < 2) ? -0.45f : 0.45f;
+                float lx = (i % 2 == 0) ? -1.45f : 1.45f;
+                float lz = (i < 2) ? -0.6f : 0.6f;
                 GameObject tLeg = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 tLeg.name = $"TraderLeg_{i}";
                 tLeg.transform.SetParent(trader.transform);
                 tLeg.transform.localPosition = new Vector3(lx, 0.4f, lz);
-                tLeg.transform.localScale = new Vector3(0.1f, 0.8f, 0.1f);
+                tLeg.transform.localScale = new Vector3(0.12f, 0.8f, 0.12f);
                 tLeg.GetComponent<MeshRenderer>().sharedMaterial = mats.wood;
             }
 
-            // Scale plate
+            // Left Side: Appraisal Scale Plate (Place sliced jade here to sell)
             GameObject scale = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             scale.name = "AppraisalScalePlate";
             scale.transform.SetParent(trader.transform);
-            scale.transform.localPosition = new Vector3(-0.55f, 0.92f, 0f);
-            scale.transform.localScale = new Vector3(0.65f, 0.02f, 0.65f);
+            scale.transform.localPosition = new Vector3(-1.05f, 0.92f, 0f);
+            scale.transform.localScale = new Vector3(0.72f, 0.02f, 0.72f);
             scale.GetComponent<MeshRenderer>().sharedMaterial = mats.metal;
 
-            // Shop purchase spawn point
-            GameObject buySpawn = new GameObject("PurchaseSpawnPoint");
-            buySpawn.transform.SetParent(trader.transform);
-            buySpawn.transform.localPosition = new Vector3(0.55f, 1.05f, 0f);
+            // Right Side: 4 Market Inspection Display Slots in a clean presentation row
+            Vector3[] slotPositions = new Vector3[]
+            {
+                new Vector3(-0.65f, 0.98f, 0.05f),
+                new Vector3(-0.10f, 0.98f, 0.05f),
+                new Vector3( 0.45f, 0.98f, 0.05f),
+                new Vector3( 1.00f, 0.98f, 0.05f)
+            };
+
+            Transform[] slotTransforms = new Transform[slotPositions.Length];
+            for (int i = 0; i < slotPositions.Length; i++)
+            {
+                GameObject slotObj = new GameObject($"MarketSlot_{i}");
+                slotObj.transform.SetParent(trader.transform);
+                slotObj.transform.localPosition = slotPositions[i];
+                slotTransforms[i] = slotObj.transform;
+
+                // Little wooden display coaster
+                GameObject coaster = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                coaster.name = $"DisplayCoaster_{i}";
+                coaster.transform.SetParent(trader.transform);
+                coaster.transform.localPosition = slotPositions[i] - Vector3.up * 0.06f;
+                coaster.transform.localScale = new Vector3(0.55f, 0.02f, 0.55f);
+                coaster.GetComponent<MeshRenderer>().sharedMaterial = mats.wood;
+                Collider cCol = coaster.GetComponent<Collider>();
+                if (cCol != null) Object.DestroyImmediate(cCol);
+            }
 
             var npc = trader.AddComponent<SeekingForJade.Economy.JadeTraderNPC>();
             SerializedObject soNpc = new SerializedObject(npc);
             soNpc.FindProperty("scaleZone").objectReferenceValue = scale.transform;
-            soNpc.FindProperty("purchaseSpawnPoint").objectReferenceValue = buySpawn.transform;
 
-            // Add all 4 boulder varieties to trader catalogue
+            // Catalog data
             List<RockData> catalog = new List<RockData>();
             List<int> prices = new List<int>();
 
-            if (riverRock != null) { catalog.Add(riverRock); prices.Add(250); }
-            if (tapeRock != null) { catalog.Add(tapeRock); prices.Add(400); }
-            if (whiteSaltRock != null) { catalog.Add(whiteSaltRock); prices.Add(500); }
-            if (moShaRock != null) { catalog.Add(moShaRock); prices.Add(600); }
+            if (riverRock != null)     { catalog.Add(riverRock);     prices.Add(150); }
+            if (whiteSaltRock != null) { catalog.Add(whiteSaltRock); prices.Add(300); }
+            if (moShaRock != null)     { catalog.Add(moShaRock);     prices.Add(450); }
+            if (tapeRock != null)      { catalog.Add(tapeRock);      prices.Add(250); }
 
             SerializedProperty bouldersProp = soNpc.FindProperty("availableBoulders");
             bouldersProp.arraySize = catalog.Count;
@@ -604,7 +644,17 @@ namespace SeekingForJade.Editor
                 pricesProp.GetArrayElementAtIndex(i).intValue = prices[i];
             }
 
+            SerializedProperty slotsProp = soNpc.FindProperty("displaySlots");
+            slotsProp.arraySize = slotTransforms.Length;
+            for (int i = 0; i < slotTransforms.Length; i++)
+            {
+                slotsProp.GetArrayElementAtIndex(i).objectReferenceValue = slotTransforms[i];
+            }
+
             soNpc.ApplyModifiedProperties();
+
+            // Populate initial display rocks immediately in editor
+            npc.InitializeDisplayTable();
         }
 
         private static void SpawnTestRocks()
@@ -657,15 +707,13 @@ namespace SeekingForJade.Editor
                     ProceduralRock rockA = halfA.GetComponent<ProceduralRock>();
                     if (rockA != null)
                     {
-                        rockA.MarkAsSliced();
-                        rockA.ApplyVisualProperties();
+                        rockA.MarkAsSawCut();
                     }
 
                     ProceduralRock rockB = halfB.GetComponent<ProceduralRock>();
                     if (rockB == null) rockB = halfB.AddComponent<ProceduralRock>();
                     rockB.CopyFromParent(rockA, rockA.WeightKg * 0.5f);
-                    rockB.MarkAsSliced();
-                    rockB.ApplyVisualProperties();
+                    rockB.MarkAsSawCut();
 
                     // Position halves facing player showcasing the rich green jade cross-section
                     halfA.transform.position = new Vector3(0.26f, 1.10f, 3.5f);
@@ -680,19 +728,45 @@ namespace SeekingForJade.Editor
                 }
             }
 
-            // 4. WHITE SALT BOULDER (On Trader Counter display)
-            if (whiteSaltRock != null)
+            // 4. SMASHED MULTI-FRAGMENT BOULDER (On floor left of workbench)
+            // Demonstrating multi-chunk jagged fracture & -60% value penalty
+            if (riverRock != null)
             {
-                GameObject rWhite = ProceduralRockGenerator.CreateRockGameObject(whiteSaltRock, 33333, new Vector3(3.4f, 1.05f, 2.5f));
-                rWhite.transform.SetParent(rockGroup.transform);
-                rWhite.transform.rotation = Quaternion.Euler(0f, -15f, 0f);
-                rWhite.name = "Boulder_WhiteSalt_33333";
+                GameObject rSmash = ProceduralRockGenerator.CreateRockGameObject(riverRock, 88812, new Vector3(-1.4f, 0.45f, 2.3f));
+                rSmash.name = "Boulder_Smashed_Crude_88812";
+                rSmash.transform.SetParent(rockGroup.transform);
+                RockImpactBreaker breaker = rSmash.GetComponent<RockImpactBreaker>();
+                if (breaker != null)
+                {
+                    breaker.BreakOnImpact(rSmash.transform.position, Vector3.up);
+
+                    // Separate the shattered pieces in edit mode so they don't overlap
+                    rSmash.transform.position = new Vector3(-1.18f, 0.28f, 2.2f);
+                    rSmash.transform.rotation = Quaternion.Euler(25f, 50f, 0f);
+
+                    foreach (Transform child in rockGroup.transform)
+                    {
+                        if (child.name.Contains("88812") && child != rSmash.transform)
+                        {
+                            if (child.name.Contains("Shard"))
+                            {
+                                child.position = new Vector3(-1.40f, 0.20f, 1.95f);
+                                child.rotation = Quaternion.Euler(15f, 110f, 0f);
+                            }
+                            else
+                            {
+                                child.position = new Vector3(-1.62f, 0.28f, 2.2f);
+                                child.rotation = Quaternion.Euler(-25f, -60f, 0f);
+                            }
+                        }
+                    }
+                }
             }
 
             // 5. Raw Boulder at Mining Quarry
             if (riverRock != null)
             {
-                GameObject rQuarry = ProceduralRockGenerator.CreateRockGameObject(riverRock, 44444, new Vector3(-3.8f, 0.75f, 2.5f));
+                GameObject rQuarry = ProceduralRockGenerator.CreateRockGameObject(riverRock, 44444, new Vector3(-3.8f, 0.95f, 2.5f));
                 rQuarry.transform.SetParent(rockGroup.transform);
                 rQuarry.name = "Boulder_Quarry_44444";
             }

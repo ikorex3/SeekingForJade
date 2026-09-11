@@ -172,7 +172,45 @@ namespace SeekingForJade.Environment
             List<int> triangles = new List<int>();
 
             Vector3 center = Vector3.zero;
-            AddFacetedSphere(vertices, normals, uvs, triangles, center, radius, rng, true);
+            AddFacetedSphere(vertices, normals, uvs, triangles, center, radius, rng, true, 1);
+
+            mesh.SetVertices(vertices);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateBounds();
+
+            return mesh;
+        }
+
+        /// <summary>
+        /// Generates an organic clustered bedrock outcrop for the mining quarry.
+        /// Combines overlapping watertight low-poly rock mounds into a solid, rugged quarry pile.
+        /// </summary>
+        public static Mesh GenerateQuarryRockOutcrop(int seed)
+        {
+            var rng = new System.Random(seed);
+            Mesh mesh = new Mesh { name = $"QuarryRockOutcrop_{seed}" };
+
+            List<Vector3> vertices = new List<Vector3>();
+            List<Vector3> normals = new List<Vector3>();
+            List<Vector2> uvs = new List<Vector2>();
+            List<int> triangles = new List<int>();
+
+            // Cluster of 4 overlapping mounds forming a rugged quarry pit/pile
+            Vector3[] moundCenters = new Vector3[]
+            {
+                new Vector3(0f, 0.25f, 0f),
+                new Vector3(-0.55f, 0.15f, 0.45f),
+                new Vector3(0.60f, 0.12f, -0.35f),
+                new Vector3(-0.25f, 0.10f, -0.60f)
+            };
+            float[] moundRadii = new float[] { 1.25f, 0.95f, 1.05f, 0.85f };
+
+            for (int m = 0; m < moundCenters.Length; m++)
+            {
+                AddFacetedSphere(vertices, normals, uvs, triangles, moundCenters[m], moundRadii[m], rng, true, 1);
+            }
 
             mesh.SetVertices(vertices);
             mesh.SetNormals(normals);
@@ -319,12 +357,11 @@ namespace SeekingForJade.Environment
             AddFlatTriangle(verts, norms, uvs, tris, v0, v2, v3);
         }
 
-        private static void AddFacetedSphere(List<Vector3> verts, List<Vector3> norms, List<Vector2> uvs, List<int> tris, Vector3 center, float radius, System.Random rng, bool isBoulder = false)
+        private static void AddFacetedSphere(List<Vector3> verts, List<Vector3> norms, List<Vector2> uvs, List<int> tris, Vector3 center, float radius, System.Random rng, bool isBoulder = false, int subdivisions = 1)
         {
-            // Low-poly icosahedron base for faceted organic roundness
             float t = (1.0f + Mathf.Sqrt(5.0f)) / 2.0f;
 
-            Vector3[] baseIco = new Vector3[]
+            List<Vector3> icoVerts = new List<Vector3>
             {
                 new Vector3(-1,  t,  0).normalized,
                 new Vector3( 1,  t,  0).normalized,
@@ -342,7 +379,7 @@ namespace SeekingForJade.Environment
                 new Vector3(-t,  0,  1).normalized
             };
 
-            int[] icoTris = new int[]
+            List<int> icoTris = new List<int>
             {
                 0, 11, 5,   0, 5, 1,    0, 1, 7,    0, 7, 10,   0, 10, 11,
                 1, 5, 9,    5, 11, 4,   11, 10, 2,  10, 7, 6,   7, 1, 8,
@@ -350,31 +387,83 @@ namespace SeekingForJade.Environment
                 4, 9, 5,    2, 4, 11,   6, 2, 10,   8, 6, 7,    9, 8, 1
             };
 
-            // Scale aspect ratio
+            // Subdivide if requested for smoother organic faceting
+            for (int sub = 0; sub < subdivisions; sub++)
+            {
+                List<int> newTris = new List<int>();
+                Dictionary<long, int> midPointCache = new Dictionary<long, int>();
+
+                for (int i = 0; i < icoTris.Count; i += 3)
+                {
+                    int a = icoTris[i];
+                    int b = icoTris[i + 1];
+                    int c = icoTris[i + 2];
+
+                    int ab = GetMidPointIndex(midPointCache, icoVerts, a, b);
+                    int bc = GetMidPointIndex(midPointCache, icoVerts, b, c);
+                    int ca = GetMidPointIndex(midPointCache, icoVerts, c, a);
+
+                    newTris.AddRange(new int[] { a, ab, ca });
+                    newTris.AddRange(new int[] { b, bc, ab });
+                    newTris.AddRange(new int[] { c, ca, bc });
+                    newTris.AddRange(new int[] { ab, bc, ca });
+                }
+
+                icoTris = newTris;
+            }
+
+            // Aspect ratio deformation for organic silhouettes
             Vector3 scale = isBoulder
                 ? new Vector3(
-                    Mathf.Lerp(0.8f, 1.3f, (float)rng.NextDouble()),
-                    Mathf.Lerp(0.6f, 1.0f, (float)rng.NextDouble()),
-                    Mathf.Lerp(0.8f, 1.4f, (float)rng.NextDouble()))
+                    Mathf.Lerp(0.85f, 1.25f, (float)rng.NextDouble()),
+                    Mathf.Lerp(0.70f, 1.05f, (float)rng.NextDouble()),
+                    Mathf.Lerp(0.85f, 1.30f, (float)rng.NextDouble()))
                 : Vector3.one;
 
-            for (int i = 0; i < icoTris.Length; i += 3)
+            // Pre-deform ALL shared vertices ONCE so edges never pull apart!
+            Vector3[] finalVerts = new Vector3[icoVerts.Count];
+            float noiseOffset = (float)rng.NextDouble() * 50f;
+            for (int v = 0; v < icoVerts.Count; v++)
             {
-                Vector3 vA = baseIco[icoTris[i]];
-                Vector3 vB = baseIco[icoTris[i + 1]];
-                Vector3 vC = baseIco[icoTris[i + 2]];
+                Vector3 baseDir = icoVerts[v];
+                float perlin = Mathf.PerlinNoise(baseDir.x * 2f + noiseOffset, baseDir.y * 2f + noiseOffset) * 2f - 1f;
+                float jitter = 1.0f + perlin * (isBoulder ? 0.18f : 0.08f);
 
-                // Random jitter per vertex for faceted hand-crafted look
-                float jA = 0.9f + (float)rng.NextDouble() * 0.2f;
-                float jB = 0.9f + (float)rng.NextDouble() * 0.2f;
-                float jC = 0.9f + (float)rng.NextDouble() * 0.2f;
+                Vector3 p = baseDir * (radius * jitter);
+                p.x *= scale.x;
+                p.y *= scale.y;
+                p.z *= scale.z;
 
-                Vector3 pA = center + Vector3.Scale(vA * (radius * jA), scale);
-                Vector3 pB = center + Vector3.Scale(vB * (radius * jB), scale);
-                Vector3 pC = center + Vector3.Scale(vC * (radius * jC), scale);
+                finalVerts[v] = center + p;
+            }
+
+            // Generate flat-shaded triangles (unshared face vertices for crisp low-poly look)
+            for (int i = 0; i < icoTris.Count; i += 3)
+            {
+                Vector3 pA = finalVerts[icoTris[i]];
+                Vector3 pB = finalVerts[icoTris[i + 1]];
+                Vector3 pC = finalVerts[icoTris[i + 2]];
 
                 AddFlatTriangle(verts, norms, uvs, tris, pA, pB, pC);
             }
+        }
+
+        private static int GetMidPointIndex(Dictionary<long, int> cache, List<Vector3> verts, int i1, int i2)
+        {
+            long smaller = Mathf.Min(i1, i2);
+            long greater = Mathf.Max(i1, i2);
+            long key = (smaller << 32) + greater;
+
+            if (cache.TryGetValue(key, out int ret)) return ret;
+
+            Vector3 p1 = verts[i1];
+            Vector3 p2 = verts[i2];
+            Vector3 middle = ((p1 + p2) * 0.5f).normalized;
+
+            verts.Add(middle);
+            int index = verts.Count - 1;
+            cache.Add(key, index);
+            return index;
         }
     }
 }

@@ -83,13 +83,13 @@ namespace SeekingForJade.Jade
             return quality;
         }
 
-        public int CalculateValue(float weightKg, float exposedJadeRatio = 1f)
+        public int CalculateValue(float weightKg, float exposedJadeRatio = 1f, float cutEfficiency = 1f)
         {
             float purityMultiplier = Mathf.Lerp(0.3f, 1.5f, purity);
             float translucencyMultiplier = Mathf.Lerp(0.5f, 2.0f, translucency);
             float crackPenalty = Mathf.Lerp(1.0f, 0.2f, crackSeverity);
 
-            float totalValue = weightKg * basePricePerKg * purityMultiplier * translucencyMultiplier * crackPenalty * exposedJadeRatio;
+            float totalValue = weightKg * basePricePerKg * purityMultiplier * translucencyMultiplier * crackPenalty * exposedJadeRatio * cutEfficiency;
             return Mathf.Max(5, Mathf.RoundToInt(totalValue));
         }
     }

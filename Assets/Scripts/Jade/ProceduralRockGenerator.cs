@@ -42,20 +42,20 @@ namespace SeekingForJade.Jade
             return rockObj;
         }
 
-        public static Mesh GenerateRockMesh(int seed, int subdivisions = 2, float baseRadius = 0.35f)
+        public static Mesh GenerateRockMesh(int seed, int subdivisions = 3, float baseRadius = 0.35f, bool flatShaded = true)
         {
             var rng = new System.Random(seed);
-            float noiseScale = 2.5f;
-            float noiseStrength = 0.12f;
+            float noiseScale = 2.8f;
+            float noiseStrength = 0.14f;
 
             // Random non-uniform scale factors to give unique rock silhouettes
             Vector3 aspectScale = new Vector3(
-                Mathf.Lerp(0.7f, 1.3f, (float)rng.NextDouble()),
-                Mathf.Lerp(0.6f, 1.1f, (float)rng.NextDouble()),
-                Mathf.Lerp(0.8f, 1.4f, (float)rng.NextDouble())
+                Mathf.Lerp(0.75f, 1.25f, (float)rng.NextDouble()),
+                Mathf.Lerp(0.65f, 1.10f, (float)rng.NextDouble()),
+                Mathf.Lerp(0.75f, 1.35f, (float)rng.NextDouble())
             );
 
-            // Start with an icosphere base
+            // Start with an icosphere base (subdivisions=3 yields 320 triangles)
             Mesh baseSphere = CreateIcoSphere(subdivisions, baseRadius);
             Vector3[] vertices = baseSphere.vertices;
             Vector3[] normals = baseSphere.normals;
@@ -66,7 +66,7 @@ namespace SeekingForJade.Jade
             for (int i = 0; i < vertices.Length; i++)
             {
                 Vector3 v = vertices[i];
-                // Apply 3D Perlin noise displacement
+                // Multi-octave Perlin noise displacement
                 float n = Mathf.PerlinNoise(v.x * noiseScale + seedOffset, v.y * noiseScale + seedOffset) * 2f - 1f;
                 float n2 = Mathf.PerlinNoise(v.y * noiseScale + seedOffset + 31f, v.z * noiseScale + seedOffset + 17f) * 2f - 1f;
 
@@ -92,6 +92,33 @@ namespace SeekingForJade.Jade
             baseSphere.uv = uvs;
             baseSphere.RecalculateNormals();
             baseSphere.RecalculateBounds();
+
+            if (flatShaded)
+            {
+                // Convert to flat-shaded (unshared vertices per triangle for crisp low-poly facets)
+                int[] oldTris = baseSphere.triangles;
+                Vector3[] flatVerts = new Vector3[oldTris.Length];
+                Vector2[] flatUvs = new Vector2[oldTris.Length];
+                int[] flatTris = new int[oldTris.Length];
+
+                for (int t = 0; t < oldTris.Length; t++)
+                {
+                    int idx = oldTris[t];
+                    flatVerts[t] = vertices[idx];
+                    flatUvs[t] = uvs[idx];
+                    flatTris[t] = t;
+                }
+
+                Mesh flatMesh = new Mesh();
+                flatMesh.name = $"ProceduralRockMesh_{seed}";
+                flatMesh.vertices = flatVerts;
+                flatMesh.triangles = flatTris;
+                flatMesh.uv = flatUvs;
+                flatMesh.RecalculateNormals();
+                flatMesh.RecalculateBounds();
+                return flatMesh;
+            }
+
             baseSphere.name = $"ProceduralRockMesh_{seed}";
             return baseSphere;
         }

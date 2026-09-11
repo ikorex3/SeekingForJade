@@ -28,17 +28,23 @@ Once purchased, the moment of truth arrives: the rock is cut open. One cut can m
   - An alluvial rock mound located near the workshop.
   - Players can mine free raw boulders on a short cooldown (15s prototype).
   - Ensures players can never go bankrupt and can always rebuild their bankroll through foraging.
-- **Trader Stall & Bazaar NPC (Master Chen)**:
-  - Sells graded mystery boulders categorized by weight, skin type, and origin.
-  - Tiers: Budget River Cobbles ($50), Medium Mountain Stones ($250), High-Grade Black Waxy Boulders ($1,000), and Masterclass Roughs ($5,000+).
-- **Player Trading (Multiplayer)**:
-  - Players can buy, sell, or swap uncut boulders or cut slabs directly with other players in the bazaar.
+- **Trader Stall & Bazaar NPC (Master Chen) - Physical Inspection Display**:
+  - Rather than blind menu purchases, Master Chen displays **4 physical candidate boulders** on wooden coasters across his counter table.
+  - Players can walk up to each stone and shine their gemological flashlight directly into the crust to check the subsurface light halo, internal color tint, and grain flaws *before* risking their money.
+  - Pressing `[E]` on any candidate boulder purchases that exact rock off the coaster.
+  - Automatically restocks sold slots with new procedural stones on a countdown.
+  - Sells graded varieties: Hpakant River Cobble ($150), White Salt Boulder ($300), Mo-Sha Black Boulder ($450), and Mystery Tape-Wrapped Boulder ($250).
 
 ### 2. Gemological Inspection (Flashlight System)
 Specialized lapidary torches shine through the rock crust to reveal optical clues before cutting:
+- **Subsurface Optical Light Halo**:
+  - When the torch is pressed against the crust, an internal point light blooms from beneath the outer rind.
+  - The halo's radius and intensity scale with the stone's hidden `translucency` (*water level* / 水头).
+  - The emitted light tints dynamically with the core jade color (emerald green, imperial glass, lavender, or murky brick grey).
+  - **Tape-Wrapped Boulders**: Completely block the halo with an in-game warning notification.
 - **Warm Yellow Beam (3000K)**:
   - Penetrates deep into the stone body.
-  - Highlights internal translucency (*water level* / 水头), color saturation, and light absorption.
+  - Highlights internal translucency, color saturation, and light absorption.
 - **Cool White Beam (6500K)**:
   - High-contrast inspection for surface crystal grain, sand texture (*shā lí*, 沙粒), and outer crust fissures.
 - **UV Purple Beam (365nm)**:
@@ -49,12 +55,12 @@ Specialized lapidary torches shine through the rock crust to reveal optical clue
 ### 3. Slicing & Cutting Progression
 Cutting determines how much market value is preserved from the raw gemstone:
 
-| Tier | Cutting Method | Description | Value Retention | Risk / Flaw Penalty |
+| Tier | Cutting Method | Description | Value Retention | Fracture Behavior & Risk |
 | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | **Throw & Smash** | Pick up and hurl stone at hard floor/walls | **50% Value** | **High**: Severe crude fractures (+0.35 crack severity) |
-| **Tier 2** | **Hand Saw / Portable** | Slow manual saw for small cobbles | **80% Value** | **Moderate**: Rough cut surface, slight unevenness |
-| **Tier 3** | **Workshop Drop Saw** | Heavy motorized circular diamond blade with coolant | **100% Value** | **None**: Perfect clean plane slice |
-| **Tier 4** | **Wire / Gang Saw (Future)** | Industrial diamond wire for massive boulders | **110% Value** | **Bonus**: Multi-slab yield with mirror polish |
+| **Tier 1** | **Throw & Smash** | Pick up and violently hurl stone at hard floor/walls | **40% Value (-60% penalty)** | **Violent Multi-Chunk Shatter**: Splits into 3 irregular pieces (two main halves + chipped shard `pieceC`) with dynamic scatter impulse. Adds `+0.45` internal crack severity. |
+| **Tier 2** | **Hand Saw / Portable** | Slow manual hand saw for small cobbles | **75% Value** | **Moderate**: Rough hand cut surface, slight unevenness. |
+| **Tier 3** | **Workshop Drop Saw** | Heavy motorized circular diamond blade with coolant | **100% Value** | **Clean Precision Cut**: Flawless planar slice exposing mirror-like internal jade cross-sections. Zero flaw penalty. |
+| **Tier 4** | **Wire / Gang Saw (Future)** | Industrial diamond wire for massive boulders | **115% Value** | **Masterclass Yield**: Ultra-thin kerf, multi-slab yield with pristine polish. |
 
 ### 4. Procedural Jade Generation & Valuation Formula
 Every rock has unique internal attributes generated from its seed:
@@ -127,10 +133,14 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 
 ### Milestone 2: Low-Poly Visual Overhaul & Rock Diversity ✅
 - [x] Faceted low-poly procedural environment (*How to Fish* aesthetic) via `LowPolyMeshGenerator.cs`.
+- [x] Watertight procedural mesh topology: pre-deformed vertices eliminating gaps/tears on quarry outcrop and boulders.
 - [x] Conifer pine trees, leafy deciduous trees, rolling hill perimeter, and winding dirt paths.
 - [x] Rustic timber workshop shelter with warm hanging brass lantern.
 - [x] 4 distinct authentic boulder varieties: Hpakant River, Mo-Sha Black Sand, White Salt, and Tape-Wrapped Mystery.
-- [x] Authentic **Tape-Wrapped Mystery Rock** mechanic blocking flashlight inspection.
+- [x] Physical interactive market inspection table with 4 candidate rocks on coasters at Master Chen's stall.
+- [x] Subsurface optical light halo reacting to torch beam and jade rarity/translucency (`ProceduralRock.cs`).
+- [x] High-polygon organic stone silhouettes (level 3 subdivisions with multi-octave Perlin displacement).
+- [x] Dynamic 3-piece smash shatter (`RockImpactBreaker.cs`) with -60% value penalty vs clean saw cuts.
 - [x] First-person stylized arms/hands holding flashlight and third-person multiplayer artisan avatar (`LowPolyCharacterBuilder.cs`, `PlayerVisuals.cs`).
 
 ### Milestone 3: Multiplayer Synchronization & Bazaar Atmosphere 🔄
@@ -157,6 +167,17 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 ## 📜 Changelog & Update History
 
 All changes made to the codebase are tracked here in chronological order:
+
+### [2026-09-11] - Watertight Outcrop Fix, Roleplay Inspection Table & Multi-Part Smash Fracture System
+**Branch**: `feature/rock-cutting-improvements`
+- **Watertight Procedural Mesh Fix**: Completely resolved torn/disconnected mesh artifacts on the quarry bedrock outcrop and boulders. Refactored `AddFacetedSphere` in `LowPolyMeshGenerator.cs` to pre-deform shared base vertices before triangulating with flat normals, ensuring 100% closed, watertight polygonal topology. Implemented `GenerateQuarryRockOutcrop(seed)` creating a natural multi-mound bedrock formation.
+- **Higher-Poly Rock Density**: Upgraded `ProceduralRockGenerator.cs` default subdivisions from 2 to 3 (320 triangles, ~960 flat-shaded vertices) with multi-octave Perlin noise displacement, delivering rich organic boulder silhouettes.
+- **Interactive Roleplay Market Inspection Table**: Replaced blind abstract NPC buying menus with a physical 4-slot display table at Master Chen's stall (`JadeTraderNPC.cs`). Each boulder is physically presented on its own wooden coaster with price tags ($150 - $450). Players can walk right up to candidate rocks, shine their multi-spectrum flashlight on them to inspect translucency, color, and internal grain *before* choosing to buy. Interacting `[E]` directly purchases that specific stone. Includes automatic restock timer for purchased slots.
+- **Subsurface Optical Light Halo**: Added `InspectWithLight(...)` to `ProceduralRock.cs`. When the flashlight beam strikes an inspectable rock crust, a real-time point light halo blooms from within the stone, matching the hidden jade rarity color and scaled by `Quality.translucency`. Retains 100% optical blockage on tape-wrapped rocks.
+- **Multi-Part Smash Fracture & Valuation Discrepancy**: Upgraded `RockImpactBreaker.cs` from a simple 2-half split to a dynamic 3-piece violent shattering (two primary fracture chunks + small chipped shard `pieceC`) with scatter impulse vectors. Implemented explicit cut valuation differentiation in `JadeQuality.cs` and `ProceduralRock.cs`:
+  - **Clean Precision Saw Cuts**: Preserves 100% market value (`cutEfficiency = 1.0f`, 0 crack penalty).
+  - **Crude Smash Breaks**: Suffers a severe -60% value penalty (`cutEfficiency = 0.40f`) plus an additional `+0.45` internal fissure/crack penalty.
+  - `JadeTraderNPC.cs` appraisal now explicitly reports whether slabs were cleanly saw-cut or crudely shattered, dynamically explaining the value difference to the player.
 
 ### [2026-09-11] - Low-Poly Art Overhaul, Boulder Diversity & Tape-Wrapped Mystery Boulder
 **Branch**: `feature/rock-cutting-improvements`

@@ -137,15 +137,10 @@ namespace SeekingForJade.Player
                     SeekingForJade.Economy.JadeTraderNPC trader = hit.collider.GetComponentInParent<SeekingForJade.Economy.JadeTraderNPC>();
                     if (trader != null)
                     {
-                        currentPrompt = trader.GetAppraisalPrompt() + " | [B] Buy Boulder ($50)";
+                        currentPrompt = trader.GetAppraisalPrompt();
                         if (interactPressed)
                         {
                             trader.TrySellPlacedSlices(out _, out _);
-                            return;
-                        }
-                        if (keyboard.bKey.wasPressedThisFrame)
-                        {
-                            trader.TryBuyBoulder(0, out _);
                             return;
                         }
                     }
@@ -154,13 +149,30 @@ namespace SeekingForJade.Player
                     ProceduralRock rock = hit.collider.GetComponentInParent<ProceduralRock>();
                     if (rock != null)
                     {
-                        string valueText = rock.IsSliced ? $" (${rock.GetEstimatedValue():N0})" : "";
-                        currentPrompt = $"[E] Pick Up {rock.WeightKg:F1}kg {rock.Quality.rarity}{valueText}";
-
-                        if (interactPressed)
+                        if (rock.IsMarketDisplay)
                         {
-                            PickUpRock(rock);
-                            return;
+                            currentPrompt = $"[E] Buy {rock.Data?.rockName ?? "Boulder"} (${rock.MarketPrice}) | [F] Inspect with Torch";
+                            if (interactPressed)
+                            {
+                                SeekingForJade.Economy.JadeTraderNPC traderNpc = Object.FindAnyObjectByType<SeekingForJade.Economy.JadeTraderNPC>();
+                                if (traderNpc != null && traderNpc.TryBuyDisplayRock(rock))
+                                {
+                                    PickUpRock(rock);
+                                }
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            string valueText = rock.IsSliced ? $" (${rock.GetEstimatedValue():N0})" : "";
+                            string methodText = rock.Method == CutMethod.RoughSmash ? " [Smashed -60%]" : (rock.Method == CutMethod.PrecisionSaw ? " [Clean Cut]" : "");
+                            currentPrompt = $"[E] Pick Up {rock.WeightKg:F1}kg {rock.Quality.rarity}{methodText}{valueText}";
+
+                            if (interactPressed)
+                            {
+                                PickUpRock(rock);
+                                return;
+                            }
                         }
                     }
                 }

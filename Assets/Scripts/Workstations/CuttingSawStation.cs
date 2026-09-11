@@ -173,8 +173,7 @@ namespace SeekingForJade.Workstations
                 ProceduralRock rockA = pieceA.GetComponent<ProceduralRock>();
                 if (rockA != null)
                 {
-                    rockA.MarkAsSliced();
-                    rockA.ApplyVisualProperties();
+                    rockA.MarkAsSawCut();
                 }
 
                 // Configure piece B
@@ -184,6 +183,7 @@ namespace SeekingForJade.Workstations
                     rockB = pieceB.AddComponent<ProceduralRock>();
                 }
                 rockB.CopyFromParent(clampedRock, clampedRock.WeightKg * 0.5f);
+                rockB.MarkAsSawCut();
 
                 // Unfreeze rigidbodies so the cut pieces drop onto table
                 Rigidbody rbA = pieceA.GetComponent<Rigidbody>();
