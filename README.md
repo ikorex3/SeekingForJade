@@ -168,6 +168,14 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 
 All changes made to the codebase are tracked here in chronological order:
 
+### [2026-09-11] - Master Chen Trader NPC Character Model & Dialogue System
+**Branch**: `feature/rock-cutting-improvements`
+- **Master Chen NPC 3D Model**: Implemented `LowPolyCharacterBuilder.BuildMerchantNPC` generating an authentic 3D merchant character model standing proudly behind his counter table at `(X = 3.8, Z = 2.5)` facing the customer approach path.
+- **Visual Features**: Styled in the cozy *How to Fish* aesthetic with traditional dark emerald silk robes, golden sash, golden collar trim, merchant skullcap with green jade medallion, expressive eyes, dark mustache, goatee, and jeweler's golden monocle loupe.
+- **Transform Hierarchy Fix**: Resolved Unity `SetParent` world rotation cancellation bug by using `SetParent(..., false)` and explicit local orientations, guaranteeing proper face alignment.
+- **Dynamic Dialogue & Guidance**: Added dialogue advice system in `JadeTraderNPC.cs` featuring authentic stone gambling wisdom. Interacting with Master Chen (`[E]`) cycles through lapidary tips on water level, tape warnings, and saw vs smash valuation.
+- **Unified Controls**: Supported both `[E]` and `[B]` for purchasing candidate display boulders and interacting with Master Chen.
+
 ### [2026-09-11] - Watertight Outcrop Fix, Roleplay Inspection Table & Multi-Part Smash Fracture System
 **Branch**: `feature/rock-cutting-improvements`
 - **Watertight Procedural Mesh Fix**: Completely resolved torn/disconnected mesh artifacts on the quarry bedrock outcrop and boulders. Refactored `AddFacetedSphere` in `LowPolyMeshGenerator.cs` to pre-deform shared base vertices before triangulating with flat normals, ensuring 100% closed, watertight polygonal topology. Implemented `GenerateQuarryRockOutcrop(seed)` creating a natural multi-mound bedrock formation.
@@ -211,12 +219,22 @@ All changes made to the codebase are tracked here in chronological order:
 
 1. Open Unity 6 and load scene `Assets/Scenes/SampleScene.unity`.
 2. Press **Play** and click **Host** on the NetworkUI overlay.
+> 📍 **Master Chen's Trader Stall Location**: Follow the dirt path branching to the right of the central workbench shelter (coordinates `X = 3.8, Z = 2.5`). Master Chen stands proudly behind his counter presenting 4 candidate boulders on wooden display coasters with a brass appraisal scale on the left.
+
 3. **Controls**:
    - **`[W] [A] [S] [D]`**: Move
    - **`[Space]`**: Jump / **`[Shift]`**: Sprint
-   - **`[E]`**: Interact (Pick up rock / Place on clamp / Start saw / Mine quarry / Sell on scale)
-   - **`[Left Click]`**: Throw held rock (smash cut against hard surface)
+   - **`[E]`**: Primary Interact:
+     - Look at **Display Boulder**: Buy that specific boulder ($150 - $450)
+     - Look at **Master Chen**: Talk / Ask for gemological stone gambling advice
+     - Look at **Appraisal Scale Plate**: Sell sliced jade pieces resting on the scale
+     - Look at **Saw Workstation**: Clamp carried rock or start precision cut
+     - Look at **Mining Quarry**: Forage free rough boulder
+     - Look at **Free Rock on ground**: Pick up rock
+   - **`[B]`**: Quick Buy Boulder:
+     - Look at **Display Boulder**: Buy that boulder
+     - Look at **Master Chen**: Buy nearest available candidate boulder
+   - **`[F]`**: Toggle Lapidary Inspection Flashlight on/off (shine directly on table rocks to inspect internal translucency and color before buying!)
+   - **`[T]`**: Cycle flashlight optical spectrum (Warm Yellow 3000K -> Cool White 6500K -> UV Purple 365nm)
+   - **`[Left Click]`**: Throw held rock (smash cut against hard surface, 3 fragments, -60% value penalty)
    - **`[Q]`** or **`[Right Click]`**: Drop held rock gently
-   - **`[F]`**: Toggle Inspection Flashlight on/off
-   - **`[T]`**: Cycle flashlight mode (Warm Yellow -> Cool White -> UV Purple)
-   - **`[B]`**: Buy mystery boulder when looking at Trader NPC
