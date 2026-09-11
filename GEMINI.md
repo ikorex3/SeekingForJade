@@ -41,6 +41,11 @@
 - In Unity 6, custom render passes and renderer features must use the **Render Graph API** (`ScriptableRenderPass` with `AddRasterRenderPass` / `RecordRenderGraph`).
 - Use the Volume framework (`UnityEngine.Rendering.Volume`) for post-processing effects (Bloom, Tone Mapping, Color Adjustments).
 
+### 5. Living Documentation Discipline
+- Always update and maintain `README.md` at the project root with every change or new feature.
+- Update the **Changelog & Update History** section of `README.md` chronologically detailing what was added, modified, or fixed.
+- Keep the **Implementation Plan & Roadmap** checklist synchronized as tasks are completed or new milestones are planned.
+
 ---
 
 ## Unity MCP (Model Context Protocol) Integration
