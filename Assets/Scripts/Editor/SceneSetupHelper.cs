@@ -62,6 +62,9 @@ namespace SeekingForJade.Editor
             public Material roof;
             public Material lantern;
             public Material jade;
+            public Material merchantSilk;
+            public Material gold;
+            public Material darkHair;
         }
 
         private static MaterialMaterials EnsureMaterials()
@@ -78,6 +81,9 @@ namespace SeekingForJade.Editor
             m.roof = GetOrCreateMaterial("Assets/Materials/M_Stylized_Roof.mat", new Color(0.52f, 0.26f, 0.16f), 0.20f);
             m.lantern = GetOrCreateMaterial("Assets/Materials/M_Stylized_Lantern.mat", new Color(1.0f, 0.85f, 0.50f), 0.10f);
             m.jade = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Jade_Internal.mat");
+            m.merchantSilk = GetOrCreateMaterial("Assets/Materials/M_Stylized_MerchantSilk.mat", new Color(0.12f, 0.28f, 0.22f), 0.45f);
+            m.gold = GetOrCreateMaterial("Assets/Materials/M_Stylized_Gold.mat", new Color(0.86f, 0.72f, 0.28f), 0.75f, 0.85f);
+            m.darkHair = GetOrCreateMaterial("Assets/Materials/M_Stylized_DarkHair.mat", new Color(0.12f, 0.12f, 0.12f), 0.15f);
 
             return m;
         }
@@ -616,6 +622,18 @@ namespace SeekingForJade.Editor
                 Collider cCol = coaster.GetComponent<Collider>();
                 if (cCol != null) Object.DestroyImmediate(cCol);
             }
+
+            // Spawn Master Chen (Jade Merchant) character model standing proudly behind the counter!
+            SeekingForJade.Player.LowPolyCharacterBuilder.BuildMerchantNPC(
+                trader.transform,
+                new Vector3(0.15f, 0f, 0.95f),
+                Quaternion.Euler(0f, 180f, 0f),
+                mats.skin,
+                mats.merchantSilk,
+                mats.gold,
+                mats.darkHair,
+                mats.jade
+            );
 
             var npc = trader.AddComponent<SeekingForJade.Economy.JadeTraderNPC>();
             SerializedObject soNpc = new SerializedObject(npc);

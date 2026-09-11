@@ -51,6 +51,7 @@ namespace SeekingForJade.Player
             if (keyboard == null) return;
 
             bool interactPressed = keyboard.eKey.wasPressedThisFrame;
+            bool buyPressed = keyboard.bKey.wasPressedThisFrame;
             bool dropPressed = keyboard.qKey.wasPressedThisFrame || (mouse != null && mouse.rightButton.wasPressedThisFrame);
 
             // Handle Carried Rock
@@ -133,15 +134,38 @@ namespace SeekingForJade.Player
                         }
                     }
 
-                    // Check Trader NPC
+                    // Check Trader NPC & Appraisal Scale
                     SeekingForJade.Economy.JadeTraderNPC trader = hit.collider.GetComponentInParent<SeekingForJade.Economy.JadeTraderNPC>();
                     if (trader != null)
                     {
-                        currentPrompt = trader.GetAppraisalPrompt();
-                        if (interactPressed)
+                        bool lookingAtScale = hit.collider.name.Contains("Scale") || hit.collider.name.Contains("Plate");
+
+                        if (lookingAtScale)
                         {
-                            trader.TrySellPlacedSlices(out _, out _);
-                            return;
+                            currentPrompt = trader.GetAppraisalPrompt();
+                            if (interactPressed)
+                            {
+                                trader.TrySellPlacedSlices(out _, out _);
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            // Looking at Master Chen or Trader Stall
+                            currentPrompt = trader.GetGreetingPrompt();
+                            if (interactPressed)
+                            {
+                                trader.SpeakNextAdvice();
+                                return;
+                            }
+                            if (buyPressed)
+                            {
+                                if (trader.TryBuyFirstAvailable(out ProceduralRock boughtRock))
+                                {
+                                    PickUpRock(boughtRock);
+                                }
+                                return;
+                            }
                         }
                     }
 
@@ -151,8 +175,8 @@ namespace SeekingForJade.Player
                     {
                         if (rock.IsMarketDisplay)
                         {
-                            currentPrompt = $"[E] Buy {rock.Data?.rockName ?? "Boulder"} (${rock.MarketPrice}) | [F] Inspect with Torch";
-                            if (interactPressed)
+                            currentPrompt = $"[E] or [B] Buy {rock.Data?.rockName ?? "Boulder"} (${rock.MarketPrice}) | [F] Inspect with Torch";
+                            if (interactPressed || buyPressed)
                             {
                                 SeekingForJade.Economy.JadeTraderNPC traderNpc = Object.FindAnyObjectByType<SeekingForJade.Economy.JadeTraderNPC>();
                                 if (traderNpc != null && traderNpc.TryBuyDisplayRock(rock))
