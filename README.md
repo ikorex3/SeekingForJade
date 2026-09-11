@@ -168,6 +168,37 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 
 All changes made to the codebase are tracked here in chronological order:
 
+### [2026-09-11] - Store Assets & VFX Integration (Nature, Town, Props, Rocks, Campfire & Animations)
+**Branch**: `feature/rock-cutting-improvements`
+- **Universal Render Pipeline Material Conversion**: Built `MaterialURPConverter.cs` to batch-upgrade all imported store assets from legacy Built-in Standard shaders (`fileID: 46`) to `Universal Render Pipeline/Lit` and `Universal Render Pipeline/Particles/Unlit`, preserving diffuse albedos, normal maps, tints, smoothness, and emissions with zero magenta/pink rendering.
+- **VFX Particle Systems**:
+  - **Campfire Hearth & Smoke**: Integrated `FX_Fire_01.prefab` with firewood and stone hearth near the workshop, casting warm flickering light and drifting smoke/ember particles.
+  - **Saw Coolant Water Mist & Stone Slurry**: Added dynamic high-velocity coolant spray and stone dust particle emitter to `CuttingSawStation.cs` via `RockVFXManager.cs`, activating whenever the spinning blade cleaves into a boulder.
+  - **Smash Impact Dust & Pebble Burst**: Connected `RockVFXManager.SpawnSmashImpactVFX` to `RockImpactBreaker.cs`, generating a concussive shockwave, dust cloud, and flying stone fragments upon high-impact collisions.
+  - **Quarry Mining Dust FX**: Spawns impact dust and rock burst particles upon successfully mining a stone from `MiningPile.cs`.
+- **Environment & Nature Dressing (`SimpleNaturePack`)**:
+  - Replaced primitive cylinder trees with `SimpleNaturePack` stylized low-poly conifer and broadleaf trees (`Tree_01` to `Tree_05`).
+  - Enriched ground glades with wild bushes (`Bush_01`-`Bush_03`), flower clusters (`Flowers_01`, `Flowers_02`), forest mushrooms (`Mushroom_01`, `Mushroom_02`), tree stumps, and fallen branches.
+- **Medieval Town & Market Architecture (`FantasyMedievalTown_LITE`)**:
+  - Hung illuminated medieval brass lanterns (`Lantern_01_LITE`) with warm point lights over the cutting workbench shelter and Master Chen's stall.
+  - Added wooden perimeter fences (`Fence_01_LITE`) and town barrels (`Barrel_01_LITE`) and flower boxes (`FlowerPot_03_LITE`).
+- **Medieval Workshop & Market Props (`LowPolyMedievalPropsLite`)**:
+  - Dressed Master Chen's counter table with stacks of minted gold/bronze coins (`Coin_01`-`Coin_03`), merchant ceramic jugs, wooden cups, and lockboxes (`Box_01`).
+  - Dressed workshop with stone coolant water buckets (`Bucket_01`), toolboxes (`Box_01`), hand axes (`Axe_01`), and stacked timber planks.
+- **Faceted Rock Variety (`BrokenVector/LowPolyRockPack`)**:
+  - Integrated 24 faceted rock meshes (`Rock Type1` through `Type6`) into `ProceduralRockGenerator.cs` and perimeter scenery, normalized to handheld boulder scale and fully sliceable/shatterable.
+- **Rigged Character & Animations (`Blink/FREE_HumanLowPoly`)**:
+  - Integrated `HumanMale_Character_FREE` as the third-person multiplayer avatar with `PlayerAnimatorController.controller`.
+  - Wired `Idle`, `RunForward`, and `MiningLoop` animation clips driven dynamically by player velocity and mining interactions.
+
+### [2026-09-11] - Master Chen Trader NPC Character Model & Dialogue System
+**Branch**: `feature/rock-cutting-improvements`
+- **Master Chen NPC 3D Model**: Implemented `LowPolyCharacterBuilder.BuildMerchantNPC` generating an authentic 3D merchant character model standing proudly behind his counter table at `(X = 3.8, Z = 2.5)` facing the customer approach path.
+- **Visual Features**: Styled in the cozy *How to Fish* aesthetic with traditional dark emerald silk robes, golden sash, golden collar trim, merchant skullcap with green jade medallion, expressive eyes, dark mustache, goatee, and jeweler's golden monocle loupe.
+- **Transform Hierarchy Fix**: Resolved Unity `SetParent` world rotation cancellation bug by using `SetParent(..., false)` and explicit local orientations, guaranteeing proper face alignment.
+- **Dynamic Dialogue & Guidance**: Added dialogue advice system in `JadeTraderNPC.cs` featuring authentic stone gambling wisdom. Interacting with Master Chen (`[E]`) cycles through lapidary tips on water level, tape warnings, and saw vs smash valuation.
+- **Unified Controls**: Supported both `[E]` and `[B]` for purchasing candidate display boulders and interacting with Master Chen.
+
 ### [2026-09-11] - Watertight Outcrop Fix, Roleplay Inspection Table & Multi-Part Smash Fracture System
 **Branch**: `feature/rock-cutting-improvements`
 - **Watertight Procedural Mesh Fix**: Completely resolved torn/disconnected mesh artifacts on the quarry bedrock outcrop and boulders. Refactored `AddFacetedSphere` in `LowPolyMeshGenerator.cs` to pre-deform shared base vertices before triangulating with flat normals, ensuring 100% closed, watertight polygonal topology. Implemented `GenerateQuarryRockOutcrop(seed)` creating a natural multi-mound bedrock formation.
@@ -211,12 +242,22 @@ All changes made to the codebase are tracked here in chronological order:
 
 1. Open Unity 6 and load scene `Assets/Scenes/SampleScene.unity`.
 2. Press **Play** and click **Host** on the NetworkUI overlay.
+> 📍 **Master Chen's Trader Stall Location**: Follow the dirt path branching to the right of the central workbench shelter (coordinates `X = 3.8, Z = 2.5`). Master Chen stands proudly behind his counter presenting 4 candidate boulders on wooden display coasters with a brass appraisal scale on the left.
+
 3. **Controls**:
    - **`[W] [A] [S] [D]`**: Move
    - **`[Space]`**: Jump / **`[Shift]`**: Sprint
-   - **`[E]`**: Interact (Pick up rock / Place on clamp / Start saw / Mine quarry / Sell on scale)
-   - **`[Left Click]`**: Throw held rock (smash cut against hard surface)
+   - **`[E]`**: Primary Interact:
+     - Look at **Display Boulder**: Buy that specific boulder ($150 - $450)
+     - Look at **Master Chen**: Talk / Ask for gemological stone gambling advice
+     - Look at **Appraisal Scale Plate**: Sell sliced jade pieces resting on the scale
+     - Look at **Saw Workstation**: Clamp carried rock or start precision cut
+     - Look at **Mining Quarry**: Forage free rough boulder
+     - Look at **Free Rock on ground**: Pick up rock
+   - **`[B]`**: Quick Buy Boulder:
+     - Look at **Display Boulder**: Buy that boulder
+     - Look at **Master Chen**: Buy nearest available candidate boulder
+   - **`[F]`**: Toggle Lapidary Inspection Flashlight on/off (shine directly on table rocks to inspect internal translucency and color before buying!)
+   - **`[T]`**: Cycle flashlight optical spectrum (Warm Yellow 3000K -> Cool White 6500K -> UV Purple 365nm)
+   - **`[Left Click]`**: Throw held rock (smash cut against hard surface, 3 fragments, -60% value penalty)
    - **`[Q]`** or **`[Right Click]`**: Drop held rock gently
-   - **`[F]`**: Toggle Inspection Flashlight on/off
-   - **`[T]`**: Cycle flashlight mode (Warm Yellow -> Cool White -> UV Purple)
-   - **`[B]`**: Buy mystery boulder when looking at Trader NPC

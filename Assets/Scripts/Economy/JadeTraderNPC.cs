@@ -37,6 +37,11 @@ namespace SeekingForJade.Economy
 
         private void Update()
         {
+            if (adviceDisplayTimer > 0f)
+            {
+                adviceDisplayTimer -= Time.deltaTime;
+            }
+
             // Handle automatic restock timers for purchased slots
             if (displaySlots == null || displaySlots.Length == 0) return;
 
@@ -204,6 +209,67 @@ namespace SeekingForJade.Economy
             }
 
             return "Scale Empty: Place Sliced Jade here to sell";
+        }
+
+        // --- Master Chen Dialogue & Guidance ---
+        private int dialogueIndex = 0;
+        private string activeAdvice = "";
+        private float adviceDisplayTimer = 0f;
+
+        private static readonly string[] MerchantWisdom = new string[]
+        {
+            "\"One knife poor, one knife rich! Shine your torch [F] on that White Salt boulder to check the water level!\"",
+            "\"Beware the yellow tape, traveler! Shrewd sellers wrap cracked stones in tape to blind your flashlight. High risk, high reward!\"",
+            "\"Never smash a fine stone on the ground! Crude breaks lose 60% of their value in shattered cracks. Use the workshop saw!\"",
+            "\"Mo-Sha black stones look dark as coal outside, but inside hides glassy emperor green. Inspect closely!\"",
+            "\"Look at any stone on my table and press [E] or [B] to buy it. Place cut slabs on my scale to cash out!\""
+        };
+
+        public string GetGreetingPrompt()
+        {
+            if (adviceDisplayTimer > 0f && !string.IsNullOrEmpty(activeAdvice))
+            {
+                return $"Master Chen: {activeAdvice}";
+            }
+            return $"Master Chen (Merchant): [E] Talk / Advice | [B] Buy Nearest Stone (${GetFirstAvailablePrice()}) | [F] Torch Stones";
+        }
+
+        public string SpeakNextAdvice()
+        {
+            activeAdvice = MerchantWisdom[dialogueIndex % MerchantWisdom.Length];
+            dialogueIndex++;
+            adviceDisplayTimer = 6.0f;
+            Debug.Log($"<color=yellow>[Master Chen]</color> {activeAdvice}");
+            return activeAdvice;
+        }
+
+        public int GetFirstAvailablePrice()
+        {
+            if (activeDisplayRocks == null) return 150;
+            for (int i = 0; i < activeDisplayRocks.Length; i++)
+            {
+                if (activeDisplayRocks[i] != null)
+                {
+                    return activeDisplayRocks[i].MarketPrice;
+                }
+            }
+            return 150;
+        }
+
+        public bool TryBuyFirstAvailable(out ProceduralRock boughtRock)
+        {
+            boughtRock = null;
+            if (activeDisplayRocks == null) return false;
+
+            for (int i = 0; i < activeDisplayRocks.Length; i++)
+            {
+                if (activeDisplayRocks[i] != null)
+                {
+                    boughtRock = activeDisplayRocks[i];
+                    return TryBuyDisplayRock(boughtRock);
+                }
+            }
+            return false;
         }
     }
 }

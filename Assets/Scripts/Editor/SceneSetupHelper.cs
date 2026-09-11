@@ -62,6 +62,9 @@ namespace SeekingForJade.Editor
             public Material roof;
             public Material lantern;
             public Material jade;
+            public Material merchantSilk;
+            public Material gold;
+            public Material darkHair;
         }
 
         private static MaterialMaterials EnsureMaterials()
@@ -78,6 +81,9 @@ namespace SeekingForJade.Editor
             m.roof = GetOrCreateMaterial("Assets/Materials/M_Stylized_Roof.mat", new Color(0.52f, 0.26f, 0.16f), 0.20f);
             m.lantern = GetOrCreateMaterial("Assets/Materials/M_Stylized_Lantern.mat", new Color(1.0f, 0.85f, 0.50f), 0.10f);
             m.jade = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Jade_Internal.mat");
+            m.merchantSilk = GetOrCreateMaterial("Assets/Materials/M_Stylized_MerchantSilk.mat", new Color(0.12f, 0.28f, 0.22f), 0.45f);
+            m.gold = GetOrCreateMaterial("Assets/Materials/M_Stylized_Gold.mat", new Color(0.86f, 0.72f, 0.28f), 0.75f, 0.85f);
+            m.darkHair = GetOrCreateMaterial("Assets/Materials/M_Stylized_DarkHair.mat", new Color(0.12f, 0.12f, 0.12f), 0.15f);
 
             return m;
         }
@@ -165,13 +171,22 @@ namespace SeekingForJade.Editor
 
             treeGroup = new GameObject("Environment_Vegetation");
 
-            // Seeded tree ring around the clearing
+            // Seeded tree ring around the clearing using SimpleNaturePack
+            string[] treePrefabPaths = new string[]
+            {
+                "Assets/SimpleNaturePack/Prefabs/Tree_01.prefab",
+                "Assets/SimpleNaturePack/Prefabs/Tree_02.prefab",
+                "Assets/SimpleNaturePack/Prefabs/Tree_03.prefab",
+                "Assets/SimpleNaturePack/Prefabs/Tree_04.prefab",
+                "Assets/SimpleNaturePack/Prefabs/Tree_05.prefab"
+            };
+
             var rng = new System.Random(42);
-            int treeCount = 32;
+            int treeCount = 34;
             for (int i = 0; i < treeCount; i++)
             {
                 float angle = i * (Mathf.PI * 2f / treeCount) + ((float)rng.NextDouble() - 0.5f) * 0.25f;
-                float radius = Mathf.Lerp(9.5f, 18.0f, (float)rng.NextDouble());
+                float radius = Mathf.Lerp(9.5f, 17.5f, (float)rng.NextDouble());
 
                 float x = Mathf.Cos(angle) * radius;
                 float z = 3.0f + Mathf.Sin(angle) * radius;
@@ -180,51 +195,72 @@ namespace SeekingForJade.Editor
                 float dist = Mathf.Sqrt(x * x + (z - 3f) * (z - 3f));
                 float y = dist > 7.5f ? Mathf.Pow((dist - 7.5f) / 12f, 1.8f) * 3.5f : 0f;
 
-                GameObject tree = new GameObject($"Tree_{i}");
-                tree.transform.SetParent(treeGroup.transform);
-                tree.transform.position = new Vector3(x, y, z);
-                tree.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
-
-                MeshFilter mf = tree.AddComponent<MeshFilter>();
-                MeshRenderer mr = tree.AddComponent<MeshRenderer>();
-
-                bool isPine = rng.NextDouble() > 0.35;
-                if (isPine)
+                string tPath = treePrefabPaths[i % treePrefabPaths.Length];
+                GameObject treeObj = SpawnPrefab(tPath, treeGroup.transform, new Vector3(x, y, z), Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f), Vector3.one * Mathf.Lerp(0.85f, 1.35f, (float)rng.NextDouble()));
+                if (treeObj == null)
                 {
-                    float treeHeight = Mathf.Lerp(4.0f, 6.5f, (float)rng.NextDouble());
-                    mf.sharedMesh = LowPolyMeshGenerator.GeneratePineTree(100 + i, treeHeight);
-                }
-                else
-                {
-                    float treeHeight = Mathf.Lerp(3.5f, 5.0f, (float)rng.NextDouble());
-                    mf.sharedMesh = LowPolyMeshGenerator.GenerateDeciduousTree(200 + i, treeHeight);
+                    treeObj = new GameObject($"Tree_{i}");
+                    treeObj.transform.SetParent(treeGroup.transform);
+                    treeObj.transform.position = new Vector3(x, y, z);
+                    treeObj.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
+
+                    MeshFilter mf = treeObj.AddComponent<MeshFilter>();
+                    MeshRenderer mr = treeObj.AddComponent<MeshRenderer>();
+                    mf.sharedMesh = LowPolyMeshGenerator.GeneratePineTree(100 + i, 5.0f);
+                    mr.sharedMaterials = new Material[] { mats.wood, mats.foliage };
                 }
 
-                mr.sharedMaterials = new Material[] { mats.wood, mats.foliage };
+                // Add under-tree foliage (bushes, flowers, mushrooms)
+                if (rng.NextDouble() > 0.35)
+                {
+                    string bushPath = $"Assets/SimpleNaturePack/Prefabs/Bush_0{(i % 3) + 1}.prefab";
+                    Vector3 bushPos = new Vector3(x + ((float)rng.NextDouble() - 0.5f) * 1.5f, y, z + ((float)rng.NextDouble() - 0.5f) * 1.5f);
+                    SpawnPrefab(bushPath, treeGroup.transform, bushPos, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f), Vector3.one * Mathf.Lerp(0.7f, 1.1f, (float)rng.NextDouble()));
+                }
 
-                // Tree trunk collider
-                CapsuleCollider col = tree.AddComponent<CapsuleCollider>();
-                col.center = new Vector3(0f, 1.2f, 0f);
-                col.radius = 0.35f;
-                col.height = 2.4f;
+                if (rng.NextDouble() > 0.55)
+                {
+                    string flowerPath = (i % 2 == 0) ? "Assets/SimpleNaturePack/Prefabs/Flowers_01.prefab" : "Assets/SimpleNaturePack/Prefabs/Flowers_02.prefab";
+                    Vector3 flowerPos = new Vector3(x + ((float)rng.NextDouble() - 0.5f) * 1.8f, y, z + ((float)rng.NextDouble() - 0.5f) * 1.8f);
+                    SpawnPrefab(flowerPath, treeGroup.transform, flowerPos, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f), Vector3.one * 0.85f);
+                }
+
+                if (rng.NextDouble() > 0.70)
+                {
+                    string shroomPath = (i % 2 == 0) ? "Assets/SimpleNaturePack/Prefabs/Mushroom_01.prefab" : "Assets/SimpleNaturePack/Prefabs/Mushroom_02.prefab";
+                    Vector3 shroomPos = new Vector3(x + ((float)rng.NextDouble() - 0.5f) * 1.2f, y, z + ((float)rng.NextDouble() - 0.5f) * 1.2f);
+                    SpawnPrefab(shroomPath, treeGroup.transform, shroomPos, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f), Vector3.one * 0.75f);
+                }
             }
 
-            // Decorative low-poly boulders around clearing perimeter
-            for (int i = 0; i < 10; i++)
+            // Scatter tree stumps and fallen branches in the glade
+            SpawnPrefab("Assets/SimpleNaturePack/Prefabs/Stump_01.prefab", treeGroup.transform, new Vector3(-5.2f, 0.1f, 1.2f), Quaternion.Euler(0f, 45f, 0f), Vector3.one);
+            SpawnPrefab("Assets/SimpleNaturePack/Prefabs/Branch_01.prefab", treeGroup.transform, new Vector3(-4.8f, 0.05f, 0.9f), Quaternion.Euler(0f, 110f, 0f), Vector3.one);
+            SpawnPrefab("Assets/SimpleNaturePack/Prefabs/Stump_01.prefab", treeGroup.transform, new Vector3(5.5f, 0.1f, 5.0f), Quaternion.Euler(0f, 85f, 0f), Vector3.one);
+
+            // Perimeter faceted boulders from BrokenVector LowPolyRockPack
+            for (int i = 0; i < 12; i++)
             {
                 float angle = (float)rng.NextDouble() * Mathf.PI * 2f;
                 float dist = Mathf.Lerp(7.0f, 12.0f, (float)rng.NextDouble());
                 Vector3 pos = new Vector3(Mathf.Cos(angle) * dist, 0.1f, 3.0f + Mathf.Sin(angle) * dist);
 
-                GameObject boulder = new GameObject($"DecoBoulder_{i}");
-                boulder.transform.SetParent(treeGroup.transform);
-                boulder.transform.position = pos;
-                boulder.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
+                int rockType = (i % 6) + 1;
+                int variation = ((i * 2) % 4) + 1;
+                string rockPath = $"Assets/BrokenVector/LowPolyRockPack/Prefabs/Rock Type{rockType} 0{variation}.prefab";
 
-                MeshFilter mf = boulder.AddComponent<MeshFilter>();
-                MeshRenderer mr = boulder.AddComponent<MeshRenderer>();
-                mf.sharedMesh = LowPolyMeshGenerator.GenerateLowPolyBoulder(300 + i, Mathf.Lerp(0.5f, 1.1f, (float)rng.NextDouble()));
-                mr.sharedMaterial = mats.dirt;
+                GameObject rObj = SpawnPrefab(rockPath, treeGroup.transform, pos, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f), Vector3.one * Mathf.Lerp(0.8f, 1.6f, (float)rng.NextDouble()));
+                if (rObj == null)
+                {
+                    GameObject boulder = new GameObject($"DecoBoulder_{i}");
+                    boulder.transform.SetParent(treeGroup.transform);
+                    boulder.transform.position = pos;
+                    boulder.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
+                    MeshFilter mf = boulder.AddComponent<MeshFilter>();
+                    MeshRenderer mr = boulder.AddComponent<MeshRenderer>();
+                    mf.sharedMesh = LowPolyMeshGenerator.GenerateLowPolyBoulder(300 + i, 0.8f);
+                    mr.sharedMaterial = mats.dirt;
+                }
             }
 
             // 4. Workshop Lean-To Shelter over Cutting Station
@@ -286,23 +322,37 @@ namespace SeekingForJade.Editor
             roof.transform.localScale = new Vector3(3.8f, 0.08f, 3.0f);
             roof.GetComponent<MeshRenderer>().sharedMaterial = mats.roof;
 
-            // Hanging Brass Workshop Lantern
-            GameObject lantern = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            lantern.name = "WorkshopLantern";
-            lantern.transform.SetParent(shelter.transform);
-            lantern.transform.localPosition = new Vector3(0f, 2.25f, -0.2f);
-            lantern.transform.localScale = new Vector3(0.15f, 0.22f, 0.15f);
-            lantern.GetComponent<MeshRenderer>().sharedMaterial = mats.lantern;
-
-            Collider lCol = lantern.GetComponent<Collider>();
-            if (lCol != null) Object.DestroyImmediate(lCol);
+            // Hanging Brass Workshop Lantern from FantasyMedievalTown_LITE
+            GameObject lantern = SpawnPrefab("Assets/FantasyMedievalTown_LITE/Prefabs/Lantern_01_LITE.prefab", shelter.transform, new Vector3(0f, 2.35f, -0.2f), Quaternion.identity, Vector3.one);
+            if (lantern == null)
+            {
+                lantern = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                lantern.name = "WorkshopLantern";
+                lantern.transform.SetParent(shelter.transform);
+                lantern.transform.localPosition = new Vector3(0f, 2.25f, -0.2f);
+                lantern.transform.localScale = new Vector3(0.15f, 0.22f, 0.15f);
+                lantern.GetComponent<MeshRenderer>().sharedMaterial = mats.lantern;
+                Collider lCol = lantern.GetComponent<Collider>();
+                if (lCol != null) Object.DestroyImmediate(lCol);
+            }
 
             // Lantern Warm Point Light
-            Light warmLight = lantern.AddComponent<Light>();
+            Light warmLight = lantern.GetComponentInChildren<Light>();
+            if (warmLight == null) warmLight = lantern.AddComponent<Light>();
             warmLight.type = LightType.Point;
-            warmLight.range = 6.0f;
-            warmLight.intensity = 1.5f;
-            warmLight.color = new Color(1.0f, 0.78f, 0.48f);
+            warmLight.range = 6.5f;
+            warmLight.intensity = 1.8f;
+            warmLight.color = new Color(1.0f, 0.82f, 0.52f);
+
+            // Workshop Props from LowPolyMedievalPropsLite
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Bucket_01.prefab", shelter.transform, new Vector3(-1.45f, 0.2f, 0.35f), Quaternion.identity, Vector3.one * 1.1f);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Box_01.prefab", shelter.transform, new Vector3(1.45f, 0.2f, -0.3f), Quaternion.identity, Vector3.one * 0.9f);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Axe_01.prefab", shelter.transform, new Vector3(1.48f, 0.45f, 0.18f), Quaternion.Euler(65f, 20f, 0f), Vector3.one);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/WoodPlank_01.prefab", shelter.transform, new Vector3(-1.58f, 0.55f, -0.85f), Quaternion.Euler(70f, 15f, 0f), Vector3.one);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/WoodPlank_02.prefab", shelter.transform, new Vector3(-1.50f, 0.55f, -0.80f), Quaternion.Euler(72f, 10f, 0f), Vector3.one);
+
+            // Campfire with Firewood, Stone Ring & FX_Fire_01 Particle System
+            SetupCampfire(shelter.transform, new Vector3(-2.8f, 0.05f, 0.8f));
         }
 
         private static void CreateBeam(Transform parent, Vector3 localPos, Vector3 scale, Material mat)
@@ -362,13 +412,39 @@ namespace SeekingForJade.Editor
                     visuals.FirstPersonHands = fpHands;
                 }
 
-                // Build stylized third-person avatar for multiplayer
-                GameObject avatar = LowPolyCharacterBuilder.BuildThirdPersonAvatar(playerPrefab, mats.skin, mats.character, mats.dirt, mats.wood);
-                visuals.ThirdPersonAvatar = avatar;
+                // Rigged & animated third-person avatar from Blink LowPolyHumans
+                string charPrefabPath = "Assets/Blink/Art/Characters/LowPoly/FREE_HumanLowPoly/Prefabs_Humans/HumanMale_Character_FREE.prefab";
+                GameObject charPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(charPrefabPath);
+                if (charPrefab != null)
+                {
+                    Transform oldAvatar = playerPrefab.transform.Find("ThirdPersonAvatar");
+                    if (oldAvatar != null) Object.DestroyImmediate(oldAvatar.gameObject);
+
+                    GameObject avatar = (GameObject)PrefabUtility.InstantiatePrefab(charPrefab, playerPrefab.transform);
+                    avatar.name = "ThirdPersonAvatar";
+                    avatar.transform.localPosition = new Vector3(0f, -1.0f, 0f);
+                    avatar.transform.localRotation = Quaternion.identity;
+                    avatar.transform.localScale = Vector3.one;
+
+                    var controller = EnsurePlayerAnimatorController();
+                    Animator anim = avatar.GetComponent<Animator>();
+                    if (anim != null && controller != null)
+                    {
+                        anim.runtimeAnimatorController = controller;
+                    }
+
+                    visuals.ThirdPersonAvatar = avatar;
+                }
+                else
+                {
+                    // Fallback to procedural builder
+                    GameObject avatar = LowPolyCharacterBuilder.BuildThirdPersonAvatar(playerPrefab, mats.skin, mats.character, mats.dirt, mats.wood);
+                    visuals.ThirdPersonAvatar = avatar;
+                }
 
                 PrefabUtility.SaveAsPrefabAsset(playerPrefab, prefabPath);
                 PrefabUtility.UnloadPrefabContents(playerPrefab);
-                Debug.Log("[SeekingForJade] Player prefab updated with LowPolyCharacterBuilder hands and avatar.");
+                Debug.Log("[SeekingForJade] Player prefab updated with Blink HumanMale animated avatar and first-person hands.");
             }
         }
 
@@ -489,6 +565,10 @@ namespace SeekingForJade.Editor
             {
                 so.FindProperty("jadeCapMaterial").objectReferenceValue = mats.jade;
             }
+
+            // Attach dynamic coolant mist & dust particle system
+            ParticleSystem mistFx = SeekingForJade.VFX.RockVFXManager.CreateSawCuttingFX(arm.transform, new Vector3(0f, -0.35f, 0f));
+            so.FindProperty("waterDustFx").objectReferenceValue = mistFx;
 
             AudioSource audio = bench.AddComponent<AudioSource>();
             so.FindProperty("audioSource").objectReferenceValue = audio;
@@ -617,6 +697,18 @@ namespace SeekingForJade.Editor
                 if (cCol != null) Object.DestroyImmediate(cCol);
             }
 
+            // Spawn Master Chen (Jade Merchant) character model standing proudly behind the counter!
+            SeekingForJade.Player.LowPolyCharacterBuilder.BuildMerchantNPC(
+                trader.transform,
+                new Vector3(0.15f, 0f, 0.95f),
+                Quaternion.Euler(0f, 180f, 0f),
+                mats.skin,
+                mats.merchantSilk,
+                mats.gold,
+                mats.darkHair,
+                mats.jade
+            );
+
             var npc = trader.AddComponent<SeekingForJade.Economy.JadeTraderNPC>();
             SerializedObject soNpc = new SerializedObject(npc);
             soNpc.FindProperty("scaleZone").objectReferenceValue = scale.transform;
@@ -655,6 +747,34 @@ namespace SeekingForJade.Editor
 
             // Populate initial display rocks immediately in editor
             npc.InitializeDisplayTable();
+
+            // Hanging Town Lantern over Master Chen's stall
+            GameObject stallLantern = SpawnPrefab("Assets/FantasyMedievalTown_LITE/Prefabs/Lantern_01_LITE.prefab", trader.transform, new Vector3(0f, 2.3f, 0f), Quaternion.identity, Vector3.one);
+            if (stallLantern != null)
+            {
+                Light ml = stallLantern.GetComponentInChildren<Light>();
+                if (ml == null) ml = stallLantern.AddComponent<Light>();
+                ml.type = LightType.Point;
+                ml.range = 5.5f;
+                ml.intensity = 1.6f;
+                ml.color = new Color(1.0f, 0.85f, 0.55f);
+            }
+
+            // Props on Master Chen's counter table (Coins, Cups, Jugs, Merchant Lockbox)
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Coin_01.prefab", trader.transform, new Vector3(-1.35f, 0.92f, 0.25f), Quaternion.identity, Vector3.one);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Coin_02.prefab", trader.transform, new Vector3(-1.25f, 0.92f, 0.32f), Quaternion.Euler(0f, 35f, 0f), Vector3.one);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Coin_03.prefab", trader.transform, new Vector3(-1.42f, 0.92f, 0.15f), Quaternion.Euler(0f, -20f, 0f), Vector3.one);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Jug_01.prefab", trader.transform, new Vector3(-1.4f, 0.92f, -0.35f), Quaternion.identity, Vector3.one * 0.9f);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Cup_01.prefab", trader.transform, new Vector3(-1.2f, 0.92f, -0.4f), Quaternion.identity, Vector3.one * 0.9f);
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Box_01.prefab", trader.transform, new Vector3(1.35f, 0.92f, -0.3f), Quaternion.identity, Vector3.one * 0.85f);
+
+            // Flanking Barrel and Flower Pot
+            SpawnPrefab("Assets/FantasyMedievalTown_LITE/Prefabs/Barrel_01_LITE.prefab", trader.transform, new Vector3(1.85f, 0f, 0.6f), Quaternion.identity, Vector3.one);
+            SpawnPrefab("Assets/FantasyMedievalTown_LITE/Prefabs/FlowerPot_03_LITE.prefab", trader.transform, new Vector3(-1.85f, 0f, -0.6f), Quaternion.identity, Vector3.one);
+
+            // Fencing along perimeter behind and beside stall
+            SpawnPrefab("Assets/FantasyMedievalTown_LITE/Prefabs/Fence_01_LITE.prefab", trader.transform, new Vector3(2.4f, 0f, 0.4f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+            SpawnPrefab("Assets/FantasyMedievalTown_LITE/Prefabs/Fence_01_LITE.prefab", trader.transform, new Vector3(2.4f, 0f, -1.6f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
         }
 
         private static void SpawnTestRocks()
@@ -770,6 +890,118 @@ namespace SeekingForJade.Editor
                 rQuarry.transform.SetParent(rockGroup.transform);
                 rQuarry.name = "Boulder_Quarry_44444";
             }
+        }
+
+        public static GameObject SpawnPrefab(string assetPath, Transform parent, Vector3 localPos, Quaternion localRot, Vector3 scale)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            if (prefab != null)
+            {
+                GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+                instance.transform.localPosition = localPos;
+                instance.transform.localRotation = localRot;
+                instance.transform.localScale = scale;
+                return instance;
+            }
+            return null;
+        }
+
+        private static void SetupCampfire(Transform parent, Vector3 localPos)
+        {
+            GameObject fireGroup = new GameObject("Campfire_Hearth");
+            fireGroup.transform.SetParent(parent);
+            fireGroup.transform.localPosition = localPos;
+
+            // Firewood pile
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Firewood_01.prefab", fireGroup.transform, Vector3.zero, Quaternion.identity, Vector3.one);
+
+            // Surrounding stone ring
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * Mathf.PI / 3f;
+                Vector3 sPos = new Vector3(Mathf.Cos(a) * 0.48f, 0f, Mathf.Sin(a) * 0.48f);
+                SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/Stone_01.prefab", fireGroup.transform, sPos, Quaternion.Euler(0f, i * 60f, 0f), Vector3.one * 0.65f);
+            }
+
+            // FX_Fire_01 Particle System
+            SpawnPrefab("Assets/LowPolyMedievalPropsLite/Prefabs/FX/FX_Fire_01.prefab", fireGroup.transform, new Vector3(0f, 0.05f, 0f), Quaternion.identity, Vector3.one);
+
+            // Warm flickering campfire point light
+            GameObject fireLightObj = new GameObject("CampfireLight");
+            fireLightObj.transform.SetParent(fireGroup.transform);
+            fireLightObj.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+            Light fl = fireLightObj.AddComponent<Light>();
+            fl.type = LightType.Point;
+            fl.range = 8.5f;
+            fl.intensity = 2.2f;
+            fl.color = new Color(1.0f, 0.65f, 0.28f);
+        }
+
+        private static RuntimeAnimatorController EnsurePlayerAnimatorController()
+        {
+            string animPath = "Assets/Settings/PlayerAnimatorController.controller";
+            var controller = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(animPath);
+            if (controller == null)
+            {
+                controller = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(animPath);
+                controller.AddParameter("Speed", AnimatorControllerParameterType.Float);
+                controller.AddParameter("Mining", AnimatorControllerParameterType.Trigger);
+
+                AnimationClip idleClip = GetClipFromAsset("Assets/Blink/Art/Animations/Animations_Starter_Pack/Movement/Idle.fbx");
+                AnimationClip runClip = GetClipFromAsset("Assets/Blink/Art/Animations/Animations_Starter_Pack/Movement/RunForward.fbx");
+                AnimationClip miningClip = GetClipFromAsset("Assets/Blink/Art/Animations/Animations_Starter_Pack/Gathering/MiningLoop.fbx");
+
+                var rootSm = controller.layers[0].stateMachine;
+
+                var idleState = rootSm.AddState("Idle");
+                if (idleClip != null) idleState.motion = idleClip;
+
+                var runState = rootSm.AddState("Run");
+                if (runClip != null) runState.motion = runClip;
+
+                var idleToRun = idleState.AddTransition(runState);
+                idleToRun.AddCondition(UnityEditor.Animations.AnimatorConditionMode.Greater, 0.1f, "Speed");
+                idleToRun.hasExitTime = false;
+                idleToRun.duration = 0.15f;
+
+                var runToIdle = runState.AddTransition(idleState);
+                runToIdle.AddCondition(UnityEditor.Animations.AnimatorConditionMode.Less, 0.1f, "Speed");
+                runToIdle.hasExitTime = false;
+                runToIdle.duration = 0.15f;
+
+                if (miningClip != null)
+                {
+                    var miningState = rootSm.AddState("Mining");
+                    miningState.motion = miningClip;
+
+                    var anyToMining = rootSm.AddAnyStateTransition(miningState);
+                    anyToMining.AddCondition(UnityEditor.Animations.AnimatorConditionMode.If, 0f, "Mining");
+                    anyToMining.hasExitTime = false;
+                    anyToMining.duration = 0.1f;
+
+                    var miningToIdle = miningState.AddTransition(idleState);
+                    miningToIdle.hasExitTime = true;
+                    miningToIdle.exitTime = 0.85f;
+                    miningToIdle.duration = 0.2f;
+                }
+
+                EditorUtility.SetDirty(controller);
+                AssetDatabase.SaveAssets();
+            }
+            return controller;
+        }
+
+        private static AnimationClip GetClipFromAsset(string path)
+        {
+            var assets = AssetDatabase.LoadAllAssetsAtPath(path);
+            foreach (var a in assets)
+            {
+                if (a is AnimationClip clip && !clip.name.StartsWith("__preview__"))
+                {
+                    return clip;
+                }
+            }
+            return null;
         }
     }
 }

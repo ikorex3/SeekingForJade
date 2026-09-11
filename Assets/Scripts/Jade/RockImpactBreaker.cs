@@ -48,7 +48,10 @@ namespace SeekingForJade.Jade
 
         public void BreakOnImpact(Vector3 impactPoint, Vector3 surfaceNormal)
         {
-            if (hasBroken || rock.IsSliced) return;
+            if (rock == null) rock = GetComponent<ProceduralRock>();
+            if (rb == null) rb = GetComponent<Rigidbody>();
+
+            if (hasBroken || (rock != null && rock.IsSliced)) return;
             hasBroken = true;
 
             if (jadeCapMaterial == null)
@@ -59,6 +62,9 @@ namespace SeekingForJade.Jade
                 jadeCapMaterial = Resources.Load<Material>("M_Jade_Internal");
 #endif
             }
+
+            // Spawn dust & pebble impact burst VFX
+            SeekingForJade.VFX.RockVFXManager.SpawnSmashImpactVFX(impactPoint, surfaceNormal);
 
             // Primary shock fracture along impact normal with jagged angle tilt
             Vector3 randomTilt = Random.insideUnitSphere * 0.45f;

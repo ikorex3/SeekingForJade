@@ -12,7 +12,33 @@ namespace SeekingForJade.Jade
             MeshFilter filter = rockObj.AddComponent<MeshFilter>();
             MeshRenderer renderer = rockObj.AddComponent<MeshRenderer>();
 
-            Mesh rockMesh = GenerateRockMesh(seed);
+            Mesh rockMesh = null;
+#if UNITY_EDITOR
+            if (seed % 2 == 0)
+            {
+                Mesh template = GetRockPackTemplateMesh(seed);
+                if (template != null)
+                {
+                    rockMesh = Object.Instantiate(template);
+                    Vector3 bSize = template.bounds.size;
+                    float maxDim = Mathf.Max(bSize.x, bSize.y, bSize.z);
+                    if (maxDim > 0.001f)
+                    {
+                        float scale = 0.65f / maxDim;
+                        Vector3[] v = rockMesh.vertices;
+                        for (int i = 0; i < v.Length; i++) v[i] *= scale;
+                        rockMesh.vertices = v;
+                        rockMesh.RecalculateBounds();
+                        rockMesh.RecalculateNormals();
+                    }
+                }
+            }
+#endif
+            if (rockMesh == null)
+            {
+                rockMesh = GenerateRockMesh(seed);
+            }
+
             filter.sharedMesh = rockMesh;
 
             Material crustMat = rockData != null && rockData.crustMaterial != null 
@@ -41,6 +67,41 @@ namespace SeekingForJade.Jade
 
             return rockObj;
         }
+
+#if UNITY_EDITOR
+        private static Mesh[] cachedRockPackMeshes;
+        public static Mesh GetRockPackTemplateMesh(int seed)
+        {
+            if (cachedRockPackMeshes == null || cachedRockPackMeshes.Length == 0)
+            {
+                var list = new System.Collections.Generic.List<Mesh>();
+                for (int t = 1; t <= 6; t++)
+                {
+                    for (int v = 1; v <= 4; v++)
+                    {
+                        string pPath = $"Assets/BrokenVector/LowPolyRockPack/Prefabs/Rock Type{t} 0{v}.prefab";
+                        GameObject p = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(pPath);
+                        if (p != null)
+                        {
+                            MeshFilter mf = p.GetComponent<MeshFilter>();
+                            if (mf != null && mf.sharedMesh != null)
+                            {
+                                list.Add(mf.sharedMesh);
+                            }
+                        }
+                    }
+                }
+                cachedRockPackMeshes = list.ToArray();
+            }
+
+            if (cachedRockPackMeshes != null && cachedRockPackMeshes.Length > 0)
+            {
+                int idx = Mathf.Abs(seed) % cachedRockPackMeshes.Length;
+                return cachedRockPackMeshes[idx];
+            }
+            return null;
+        }
+#endif
 
         public static Mesh GenerateRockMesh(int seed, int subdivisions = 3, float baseRadius = 0.35f, bool flatShaded = true)
         {
