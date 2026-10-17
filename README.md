@@ -169,6 +169,12 @@ Different geological origins produce radically different crust rinds (*pí*, 皮
 ## 📜 Changelog & Update History
 
 All changes made to the codebase are tracked here in chronological order:
+
+### [2026-10-17] - Multiplayer Disconnect & Cursor Toggle QoL
+- **NetworkUI**: Added a `Disconnect` button for active Host/Client sessions (`NetworkManager.Singleton.Shutdown()`) and dynamic connected player count display.
+- **Cursor State Management**: Added `[Esc]` key cursor toggle in `PlayerMovement.cs` allowing players to unlock and relock mouse cursor for UI interaction, and implemented `OnNetworkDespawn()` cursor cleanup.
+- **Input Guarding**: Protected rock throwing and dropping interactions in `PlayerInteraction.cs` so mouse clicks do not inadvertently throw rocks while interacting with UI.
+
 ### [2026-09-11] - Network Synchronization Phase 2: Frame-0 Rock State Sync & Impact Shattering
 **Branch**: `feature/multiplayer_debug`
 - **Frame-0 Rock Sync**: Fixed Netcode warnings by eliminating unspawned `NetState.Value` writes. Host and Client now render 100% identical procedural rock meshes from frame 0 with zero shape morphing.
@@ -288,3 +294,4 @@ All changes made to the codebase are tracked here in chronological order:
    - **`[T]`**: Cycle flashlight optical spectrum (Warm Yellow 3000K -> Cool White 6500K -> UV Purple 365nm)
    - **`[Left Click]`**: Throw held rock (smash cut against hard surface, 3 fragments, -60% value penalty)
    - **`[Q]`** or **`[Right Click]`**: Drop held rock gently
+   - **`[Esc]`**: Toggle mouse cursor lock / unlock (to interact with UI or Disconnect button)

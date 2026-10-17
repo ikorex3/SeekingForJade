@@ -50,9 +50,26 @@ public class PlayerMovement : NetworkBehaviour
         Cursor.visible = false;
     }
 
+    public override void OnNetworkDespawn()
+    {
+        if (IsOwner)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+    }
+
     private void Update()
     {
         if (!IsOwner) return;
+
+        var keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+        {
+            bool isLocked = Cursor.lockState == CursorLockMode.Locked;
+            Cursor.lockState = isLocked ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = !isLocked;
+        }
 
         if (jumpCooldownTimer > 0f)
         {
@@ -60,7 +77,7 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         var mouse = Mouse.current;
-        if (mouse != null)
+        if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
         {
             Vector2 mouseDelta = mouse.delta.ReadValue() * mouseSensitivity;
 
