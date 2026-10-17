@@ -139,9 +139,10 @@ namespace SeekingForJade.Player
             var mouse = Mouse.current;
             if (keyboard == null) return;
 
+            bool isCursorLocked = Cursor.lockState == CursorLockMode.Locked;
             bool interactPressed = keyboard.eKey.wasPressedThisFrame;
             bool buyPressed = keyboard.bKey.wasPressedThisFrame;
-            bool dropPressed = keyboard.qKey.wasPressedThisFrame || (mouse != null && mouse.rightButton.wasPressedThisFrame);
+            bool dropPressed = keyboard.qKey.wasPressedThisFrame || (isCursorLocked && mouse != null && mouse.rightButton.wasPressedThisFrame);
 
             // Handle Carried Rock
             if (carriedRock != null)
@@ -165,7 +166,7 @@ namespace SeekingForJade.Player
                     currentPrompt = $"Holding: {carriedRock.WeightKg:F1}kg {carriedRock.Quality.rarity} | [L-Click] Throw & Smash | [Q] Drop";
                 }
 
-                if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                if (isCursorLocked && mouse != null && mouse.leftButton.wasPressedThisFrame)
                 {
                     ThrowRock();
                     return;
